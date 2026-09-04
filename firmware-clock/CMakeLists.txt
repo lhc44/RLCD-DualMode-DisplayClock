@@ -8,5 +8,3 @@ set(EXTRA_COMPONENT_DIRS
     components/ExternLib/codec_board
     components/ExternLib/leeebo__tinyusb_src)
 project(weather_clock)
-
-
