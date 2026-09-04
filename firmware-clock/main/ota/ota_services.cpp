@@ -37,7 +37,7 @@
 #include <esp_wifi.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
-#include <mbedtls/sha256.h>
+#include <psa/crypto.h>
 
 #include <stdarg.h>
 #include <stdint.h>
@@ -429,7 +429,7 @@ static OtaInstallAttemptResult stream_ota_image(
     const OtaManifest &manifest,
     int content_len,
     ScopedHeapBuffer<uint8_t> &buffer,
-    mbedtls_sha256_context &sha_ctx,
+    psa_hash_operation_t &sha_ctx,
     OtaTaskWatchdogGuard &wdt,
     int64_t started_us,
     int &total)
@@ -470,7 +470,10 @@ static OtaInstallAttemptResult stream_ota_image(
             continue;
         }
         last_progress_us = esp_timer_get_time();
-        mbedtls_sha256_update(&sha_ctx, buffer.data(), read);
+        if (psa_hash_update(&sha_ctx, buffer.data(), static_cast<size_t>(read)) != PSA_SUCCESS) {
+            ESP_LOGW(TAG, "OTA SHA-256 update failed");
+            return OtaInstallAttemptResult::kTerminalFailure;
+        }
         esp_err_t err = esp_ota_write(ota_handle, buffer.data(), read);
         wdt.reset();
         if (err != ESP_OK) {
@@ -544,9 +547,17 @@ static OtaInstallAttemptResult download_and_apply_ota(
         return OtaInstallAttemptResult::kTerminalFailure;
     }
 
-    mbedtls_sha256_context sha_ctx;
-    mbedtls_sha256_init(&sha_ctx);
-    mbedtls_sha256_starts(&sha_ctx, 0);
+    if (psa_crypto_init() != PSA_SUCCESS) {
+        ESP_LOGW(TAG, "OTA SHA-256 crypto initialization failed");
+        ota_set_failed_status(kOtaStatusDownloadFailed);
+        return OtaInstallAttemptResult::kTerminalFailure;
+    }
+    psa_hash_operation_t sha_ctx = PSA_HASH_OPERATION_INIT;
+    if (psa_hash_setup(&sha_ctx, PSA_ALG_SHA_256) != PSA_SUCCESS) {
+        ESP_LOGW(TAG, "OTA SHA-256 setup failed");
+        ota_set_failed_status(kOtaStatusDownloadFailed);
+        return OtaInstallAttemptResult::kTerminalFailure;
+    }
 
     int total = 0;
     int64_t started_us = esp_timer_get_time();
@@ -564,12 +575,13 @@ static OtaInstallAttemptResult download_and_apply_ota(
 
     uint8_t hash[kOtaSha256ByteCount];
     wdt.reset();
-    mbedtls_sha256_finish(&sha_ctx, hash);
-    mbedtls_sha256_free(&sha_ctx);
+    size_t hash_len = 0;
+    const psa_status_t hash_status = psa_hash_finish(&sha_ctx, hash, sizeof(hash), &hash_len);
     bool complete = esp_http_client_is_complete_data_received(client);
     http_session.close();
 
-    if (!ota_install_attempt_succeeded(stream_result) || !complete) {
+    if (!ota_install_attempt_succeeded(stream_result) || !complete ||
+        hash_status != PSA_SUCCESS || hash_len != sizeof(hash)) {
         ota_set_failed_status(kOtaStatusDownloadFailed);
         return ota_install_attempt_succeeded(stream_result)
                    ? OtaInstallAttemptResult::kRetryBackupSource
