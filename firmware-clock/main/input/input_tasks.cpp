@@ -5,6 +5,7 @@
 #include "alarm_services.h"
 #include "app_metadata.h"
 #include "battery_runtime_state.h"
+#include "dual_mode_controller.h"
 #include "input_button_config.h"
 #include "input_button_wait_policy.h"
 #include "network_diagnostics_state.h"
@@ -34,16 +35,19 @@
 #define BUTTON_EDGE_WAKEUP_READY_LOG_FORMAT "button edge wakeup ready"
 #define BUTTON_SWITCH_WORK_PAGE_LOG_FORMAT "switch work page: %d"
 #define BUTTON_SHOW_SETTINGS_LOG_FORMAT "key button clicked, showing settings page"
+#define BUTTON_DUAL_MODE_SWITCH_LOG_FORMAT "runtime display mode switched: %d"
 
 namespace {
 constexpr int kButtonDebounceMs = 18;
 constexpr int kButtonLongPressMs = 1200;
 constexpr int kButtonBusyFeedbackMs = 2000;
+constexpr int kRuntimeModeChordHoldMs = 1500;
 constexpr uint64_t kBootButtonPinMask = 1ULL << kBootButtonGpio;
 constexpr uint64_t kKeyButtonPinMask = 1ULL << kKeyButtonGpio;
 constexpr uint64_t kButtonInputPinMask = kBootButtonPinMask | kKeyButtonPinMask;
 constexpr TickType_t kButtonDebounceTicks = pdMS_TO_TICKS(kButtonDebounceMs);
 constexpr TickType_t kButtonLongPressTicks = pdMS_TO_TICKS(kButtonLongPressMs);
+constexpr TickType_t kRuntimeModeChordHoldTicks = pdMS_TO_TICKS(kRuntimeModeChordHoldMs);
 constexpr const char *kSettingsBusyFeedbackText = "请等待操作完成";
 TaskNotificationTarget s_button_task_target;
 
@@ -55,6 +59,8 @@ static_assert(kButtonInputPinMask == (kBootButtonPinMask | kKeyButtonPinMask),
               "button input pin mask must include BOOT and KEY");
 static_assert(kButtonLongPressTicks > kButtonDebounceTicks,
               "button long-press tick duration must be longer than debounce duration");
+static_assert(kRuntimeModeChordHoldTicks >= kButtonLongPressTicks,
+              "runtime mode chord must not preempt a normal short press");
 static_assert(kButtonGpioConfigMaxAttempts > 1,
               "button GPIO configuration must retain a retry opportunity");
 static_assert(kButtonGpioConfigRetryDelayMs > 0,
@@ -223,6 +229,8 @@ void button_task(void *)
     bool key_long_handled = false;
     bool boot_press_stopped_alert = false;
     bool key_press_stopped_alert = false;
+    TickType_t runtime_mode_chord_since = 0;
+    bool runtime_mode_chord_consumed = false;
 
     for (;;) {
         TickType_t now = xTaskGetTickCount();
@@ -239,7 +247,8 @@ void button_task(void *)
                 }
             }
         } else {
-            if (boot_pressed_since != 0 && boot_press_stopped_alert) {
+            if (boot_pressed_since != 0 &&
+                (boot_press_stopped_alert || runtime_mode_chord_consumed)) {
                 // 提醒音播放期间任意按键只负责停止音频，不继续执行原按键动作。
             } else if (boot_pressed_since != 0 && settings_page_requested()) {
                 TickType_t held = now - boot_pressed_since;
@@ -276,7 +285,7 @@ void button_task(void *)
                 if (settings_page_requested()) {
                     settings_activity_record(now);
                 }
-                if (!key_press_stopped_alert &&
+                if (!key_press_stopped_alert && !boot_pressed &&
                     !settings_page_requested() && !info_page_requested() && !network_diag_page_requested()) {
                     ESP_LOGI(TAG, BUTTON_SHOW_SETTINGS_LOG_FORMAT);
                     enter_settings_primary_menu(now);
@@ -313,6 +322,7 @@ void button_task(void *)
         } else {
             if (key_pressed_since != 0 &&
                 !key_press_stopped_alert &&
+                !runtime_mode_chord_consumed &&
                 !key_press_opened_settings && !key_long_handled && settings_page_requested()) {
                 TickType_t held = now - key_pressed_since;
                 if (button_press_is_long(held)) {
@@ -336,6 +346,36 @@ void button_task(void *)
             key_press_opened_settings = false;
             key_long_handled = false;
             key_press_stopped_alert = false;
+        }
+
+        // ROM download remains the physical BOOT + power-on gesture.  During
+        // normal runtime, holding BOOT and KEY together switches panel ownership
+        // between the clock and the Windows USB display without entering settings.
+        const bool runtime_mode_chord =
+            boot_pressed && key_pressed && !settings_page_requested() &&
+            !info_page_requested() && !network_diag_page_requested() &&
+            !setup_portal_active_load() && !battery_low_mode_load() &&
+            !boot_press_stopped_alert && !key_press_stopped_alert;
+        if (runtime_mode_chord) {
+            if (runtime_mode_chord_since == 0) {
+                runtime_mode_chord_since = now;
+            } else if (!runtime_mode_chord_consumed &&
+                       now - runtime_mode_chord_since >= kRuntimeModeChordHoldTicks) {
+                const bool switched = dual_mode_toggle_from_runtime_chord();
+                if (switched) {
+                    runtime_mode_chord_consumed = true;
+                    key_press_opened_settings = true;
+                    key_long_handled = true;
+                    const DualModeSnapshot snapshot = dual_mode_snapshot_load();
+                    ESP_LOGI(TAG,
+                             BUTTON_DUAL_MODE_SWITCH_LOG_FORMAT,
+                             static_cast<int>(snapshot.mode));
+                    notify_ui_task();
+                }
+            }
+        } else if (!boot_pressed && !key_pressed) {
+            runtime_mode_chord_since = 0;
+            runtime_mode_chord_consumed = false;
         }
         const bool press_tracking_active =
             boot_pressed_since != 0 || key_pressed_since != 0;

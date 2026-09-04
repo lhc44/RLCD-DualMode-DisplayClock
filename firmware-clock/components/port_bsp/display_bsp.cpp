@@ -16,7 +16,10 @@
 #define RLCD_INIT_STAGE_FAILED_LOG_FORMAT "RLCD %s failed: %s"
 #define RLCD_RELEASE_STAGE_FAILED_LOG_FORMAT "RLCD release %s failed: %s"
 
-static constexpr int kRlcdSpiClockHz = 5 * 1000 * 1000;
+// The verified Windows-display implementation drives this panel at 10 MHz.
+// Keep the same transport rate here so a complete 15,000-byte Mono1 present
+// is not artificially capped by the imported clock baseline's 5 MHz setting.
+static constexpr int kRlcdSpiClockHz = 10 * 1000 * 1000;
 static constexpr int kRlcdTxChunkBytes = 2048;
 static constexpr int kRlcdOtaTxChunkBytes = 512;
 static constexpr int kRlcdTxRetryCount = 4;

@@ -6,6 +6,7 @@
 #include "app_hardware.h"
 #include "app_metadata.h"
 #include "ota_runtime_state.h"
+#include "dual_mode_controller.h"
 #include "ui_display_diag_policy.h"
 
 #include <esp_attr.h>
@@ -124,6 +125,17 @@ void flush_callback(lv_disp_drv_t *drv, const lv_area_t *area, lv_color_t *color
 {
     DisplayPort &display = app_display();
     DisplayFlushRuntimeState &runtime = display_flush_runtime();
+
+    // The USB presenter owns the panel while Windows Display mode is active.
+    // LVGL still completes its flush cycle so the clock scene remains current and
+    // can be redrawn immediately when the user returns to Clock mode.
+    if (dual_mode_snapshot_load().mode == DualMode::Display) {
+        runtime.range_count = 0;
+        runtime.force_full_refresh = false;
+        runtime.full_reason_mask = 0;
+        lv_disp_flush_ready(drv);
+        return;
+    }
 
     const OtaRuntimeFlagsSnapshot ota_at_flush_start =
         ota_runtime_flags_load();

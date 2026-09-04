@@ -14,6 +14,7 @@
 #include "battery_runtime_state.h"
 #include "chime_runtime_state.h"
 #include "daily_saying_state.h"
+#include "dual_mode_controller.h"
 #include "local_sensor_state.h"
 #include "input_button_config.h"
 #include "lvgl_bsp.h"
@@ -153,6 +154,7 @@ void ui_task(void *)
     int low_battery_resume_page = kWorkPageWeatherClock;
     bool low_battery_resume_pending = false;
     uint8_t lvgl_lock_failures = 0;
+    uint32_t last_dual_mode_generation = 0;
 
     for (;;) {
         time_t now;
@@ -193,6 +195,9 @@ void ui_task(void *)
             xiaozhi_activation_request_valid);
 
         TickType_t tick_now = xTaskGetTickCount();
+        const DualModeSnapshot dual_mode = dual_mode_snapshot_load();
+        const bool dual_mode_changed =
+            dual_mode.generation != last_dual_mode_generation;
         if (active_page == kWorkPageXiaozhiAI &&
             runtime_surfaces.auxiliary_page_requested()) {
             xiaozhi_last_activity_tick = tick_now;
@@ -253,6 +258,15 @@ void ui_task(void *)
         if (lvgl_locked) {
             lvgl_lock_failures = 0;
             bool refresh_now = false;
+            if (dual_mode_changed) {
+                // When Display mode releases panel ownership, force LVGL to
+                // repaint the complete retained clock scene into the Mono1 buffer.
+                if (dual_mode.mode != DualMode::Display) {
+                    lv_obj_invalidate(lv_scr_act());
+                    refresh_now = true;
+                }
+                last_dual_mode_generation = dual_mode.generation;
+            }
             bool info_requested = runtime_surfaces.info_requested;
             InfoPageStateSnapshot info_state = {};
             OtaRuntimeTimingSnapshot info_ota = {};

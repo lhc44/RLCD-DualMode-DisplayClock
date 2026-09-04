@@ -1,9 +1,23 @@
-# Port sequence
+# Port and verification plan
 
-1. Lock the clock base dependencies to ESP-IDF 5.5.3 and compile the unmodified baseline.
-2. Add a dormant USB vendor transport component and validate that its descriptor does not change the clock's boot path.
-3. Port the verified Mono1 frame parser and frame-owner/DMA serialization mechanism.
-4. Add `CLOCK`, `DISPLAY`, and `ECO` state ownership with panel presenter exclusion.
-5. Add post-startup BOOT+KEY chord detection with individual BOOT/KEY semantics preserved.
-6. Extend the Windows driver protocol with `DEVICE_MODE`, `DISPLAY_READY`, and `FULL_REDRAW` control messages.
-7. Perform display, key, power, USB disconnect, and download-mode regression runs.
+## Completed integration work
+
+1. Imported the complete clock baseline and preserved its upstream notices.
+2. Added the local TinyUSB vendor component and the stable 400×300 Mono1 descriptor identity.
+3. Ported the fixed-size USB Mono1 receiver and native `RLCD_PresentMono1()` presenter entry point.
+4. Added a locked dual-mode controller, LVGL flush exclusion, and redraw-on-return behavior.
+5. Added the post-startup BOOT+KEY 1.5-second chord with a consumed release path.
+
+## Required target-hardware validation
+
+1. Build the project with the upstream-compatible ESP-IDF 5.5.3 environment.
+2. Flash and confirm default `CLOCK` boot, BOOT short-page switching, KEY settings navigation, and BOOT-held PWR download entry.
+3. Hold BOOT+KEY for 1.5 seconds: Windows should become the active panel presenter; repeat to restore an immediately redrawn clock.
+4. Send a known alternating Mono1 test frame and a full Windows desktop frame; verify the 400×300 landscape orientation and no concurrent clock writes.
+5. Disconnect/reconnect USB while in `DISPLAY`, then toggle to `CLOCK` and confirm the local UI remains usable.
+
+## Deferred work
+
+- Eco-mode power transition and wake policy.
+- Windows control-plane messages beyond the existing full-frame Mono1 data stream.
+- Device-side frame-rate telemetry and host adaptive pacing.
