@@ -16,6 +16,7 @@
 #include "custom_assets_internal.h"
 #include "daily_saying_state_internal.h"
 #include "dual_mode_controller.h"
+#include "usb_display_service.h"
 #include "manual_weather_city_state_internal.h"
 #include "network_credentials_state_internal.h"
 #include "network_diagnostics_state_internal.h"
@@ -365,6 +366,9 @@ extern "C" void app_main(void)
     }
     display.RLCD_ColorClear(ColorWhite);
     display.RLCD_Display();
+    if (!usb_display_service_init(display)) {
+        ESP_LOGW(TAG, "USB secondary-display transport unavailable; continuing clock mode");
+    }
     if (!Lvgl_PortInit(kDisplayWidth, kDisplayHeight, flush_callback)) {
         ESP_LOGE(TAG, MAIN_LVGL_INIT_FAILED_LOG_FORMAT);
         cleanup_failed_startup_resources();

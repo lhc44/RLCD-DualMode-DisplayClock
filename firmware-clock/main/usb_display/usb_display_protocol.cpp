@@ -26,6 +26,11 @@ bool UsbDisplayMono1Receiver::append(const uint8_t *data, size_t length)
     return true;
 }
 
+bool UsbDisplayMono1Receiver::active() const
+{
+    return active_;
+}
+
 bool UsbDisplayMono1Receiver::complete() const
 {
     return active_ && received_ == kUsbDisplayMono1Bytes;

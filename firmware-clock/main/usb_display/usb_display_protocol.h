@@ -48,6 +48,7 @@ class UsbDisplayMono1Receiver {
 public:
     bool begin(const UsbDisplayFrameHeader &header);
     bool append(const uint8_t *data, size_t length);
+    bool active() const;
     bool complete() const;
     const uint8_t *data() const;
     size_t size() const;

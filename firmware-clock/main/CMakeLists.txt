@@ -4,6 +4,8 @@ idf_component_register(
         "core/main.cpp"
         "dual_mode/dual_mode_controller.cpp"
         "usb_display/usb_display_protocol.cpp"
+        "usb_display/usb_display_service.cpp"
+        "usb_display/usb_display_descriptors.c"
         "core/app_task_startup.cpp"
         "core/app_metadata.cpp"
         "core/app_event_group.cpp"
@@ -245,6 +247,9 @@ idf_component_register(
         json
         mbedtls
         tcp_transport)
+
+idf_component_get_property(tusb_lib leeebo__tinyusb_src COMPONENT_LIB)
+target_link_libraries(${tusb_lib} PRIVATE ${COMPONENT_LIB})
 
 string(TIMESTAMP WEATHER_CLOCK_BUILD_DATE "%Y-%m-%d")
 target_compile_definitions(${COMPONENT_LIB} PRIVATE WEATHER_CLOCK_BUILD_DATE="${WEATHER_CLOCK_BUILD_DATE}")
