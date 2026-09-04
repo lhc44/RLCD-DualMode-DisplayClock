@@ -10,3 +10,6 @@ main/wifi_secrets.h
 
 # Release artifacts
 release/
+
+# Downloaded upstream checkout (metadata source only)
+upstream/
