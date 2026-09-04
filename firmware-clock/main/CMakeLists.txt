@@ -2,6 +2,7 @@
 idf_component_register(
     SRCS
         "core/main.cpp"
+        "dual_mode/dual_mode_controller.cpp"
         "core/app_task_startup.cpp"
         "core/app_metadata.cpp"
         "core/app_event_group.cpp"
@@ -220,6 +221,7 @@ idf_component_register(
         "input"
         "storage"
         "assets"
+        "dual_mode"
     REQUIRES
         app_bsp
         port_bsp

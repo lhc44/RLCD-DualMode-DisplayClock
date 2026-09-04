@@ -15,6 +15,7 @@
 #include "audio_services_internal.h"
 #include "custom_assets_internal.h"
 #include "daily_saying_state_internal.h"
+#include "dual_mode_controller.h"
 #include "manual_weather_city_state_internal.h"
 #include "network_credentials_state_internal.h"
 #include "network_diagnostics_state_internal.h"
@@ -313,6 +314,10 @@ extern "C" void app_main(void)
     if (!init_nvs_storage()) {
         return;
     }
+    // The controller starts only after the ROM bootloader has finished its
+    // BOOT/PWR download decision. Runtime chord handling is added in a later
+    // port stage and never participates in reset-time GPIO sampling.
+    dual_mode_init();
 
     if (!ota_runtime_state_init()) {
         ESP_LOGE(TAG, MAIN_OTA_RUNTIME_STATE_INIT_FAILED_LOG_FORMAT);
