@@ -10,10 +10,9 @@ set(include_dirs ./src
                 ./src/touch
                 ./src/platform
                 ./src/bosch
-                ./src/bosch/firmware
                 ./src/bosch/BMM150
                 ./src/bosch/common)
 
 idf_component_register(SRC_DIRS ${src_dirs} 
                         INCLUDE_DIRS ${include_dirs}
-                        REQUIRES esp_timer esp_driver_gpio driver)
+                        REQUIRES esp_timer esp_driver_gpio esp_driver_i2c esp_driver_spi driver)

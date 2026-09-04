@@ -229,6 +229,7 @@ idf_component_register(
     REQUIRES
         app_bsp
         port_bsp
+        leeebo__tinyusb_src
         lvgl__lvgl
         nvs_flash
         esp_wifi
@@ -244,7 +245,6 @@ idf_component_register(
         esp_pm
         esp_adc
         esp_driver_gpio
-        json
         mbedtls
         tcp_transport)
 

@@ -20,12 +20,12 @@
 | 项目 | 要求 |
 | --- | --- |
 | 操作系统 | Windows 10/11 x64 |
-| SDK | **ESP-IDF v5.5.3** |
+| SDK | **ESP-IDF v6.0.2** |
 | 目标 | `esp32s3` |
 | 板卡 | Waveshare ESP32-S3-RLCD-4.2，16 MB Flash / 8 MB PSRAM |
 | USB 驱动 | 已安装 RLCD Mono1 Windows 虚拟显示驱动 |
 
-请在 ESP-IDF v5.5.3 的 PowerShell/命令提示符中执行以下操作。当前仓库的上游 CI 也固定使用 v5.5.3；不要用其他 SDK 的构建目录复用本工程。
+请在 ESP-IDF v6.0.2 的 PowerShell/命令提示符中执行以下操作。不要复用其他 SDK 生成的 `build` 目录。
 
 ## 3. 首次构建
 
@@ -36,7 +36,7 @@ Set-Location $repo
 # 仅清除本工程生成物；不影响源码和设备配置。
 idf.py fullclean
 idf.py set-target esp32s3
-idf.py build
+& .\tools\Build-IDF6.ps1
 ```
 
 构建成功后，主要产物位于：
@@ -45,7 +45,7 @@ idf.py build
 - `E:\weixue\RLCD-DualMode-DisplayClock\firmware-clock\build\bootloader\bootloader.bin`
 - `E:\weixue\RLCD-DualMode-DisplayClock\firmware-clock\build\partition_table\partition-table.bin`
 
-工程默认配置为 16 MB Flash、QIO、80 MHz 和 Octal PSRAM。刷写时直接使用 `idf.py flash`，使其读取同一次构建生成的正确 `flash_args`。
+工程默认配置为 16 MB Flash、QIO、80 MHz 和 Octal PSRAM。`Build-IDF6.ps1` 会在依赖解析后自动处理 ESP-DSP 1.7 与 IDF 6/Picolibc 的 `<cmath>` 兼容补丁。刷写时直接使用 `idf.py flash`，使其读取同一次构建生成的正确 `flash_args`。
 
 ## 4. 进入下载模式、刷写和串口日志
 

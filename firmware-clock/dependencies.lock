@@ -1,6 +1,16 @@
 dependencies:
+  espressif/cjson:
+    component_hash: e788323270d90738662d66fffa910bfe1fba019bba087f01557e70c40485b469
+    dependencies:
+    - name: idf
+      require: private
+      version: '>=5.0'
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 1.7.19~2
   espressif/dl_fft:
-    component_hash: 2f319e72f3ab6f673c83849d6a14b68c21165d4dce24e12af7c13714ba35a6e0
+    component_hash: a955ca29581de2177ddf25759273bd83f082b3c805e735fe6ee105858643989b
     dependencies:
     - name: idf
       require: private
@@ -8,7 +18,7 @@ dependencies:
     source:
       registry_url: https://components.espressif.com
       type: service
-    version: 0.5.0
+    version: 0.6.0
   espressif/esp-dsp:
     component_hash: 42dce32d46ac93dc11f60d368e29a830e9661c7345d794b8a45c343479cae636
     dependencies:
@@ -57,7 +67,7 @@ dependencies:
   idf:
     source:
       type: idf
-    version: 5.5.3
+    version: 6.0.2
   lvgl/lvgl:
     component_hash: d7c1ac037ae6e85d94897f807d6e7ba0946a83e720074fc95a4f6241da9f9f53
     dependencies: []
@@ -66,11 +76,12 @@ dependencies:
       type: service
     version: 8.4.0
 direct_dependencies:
+- espressif/cjson
 - espressif/esp-sr
 - espressif/esp_audio_codec
 - espressif/esp_audio_effects
 - idf
 - lvgl/lvgl
-manifest_hash: 41676ef271778caf97833bede199ccdc4e8afd2f1645bc40c9b1c9e7534d8e5a
+manifest_hash: 1c4ad10679155f8a4a9d11dd7ef4748099bc00b97fbcd31c483ae4a9f26dbcbd
 target: esp32s3
-version: 2.0.0
+version: 3.0.0

@@ -81,11 +81,10 @@ void usb_task(void *)
 
 bool init_usb_phy()
 {
-    usb_phy_config_t config = {
-        .controller = USB_PHY_CTRL_OTG,
-        .target = USB_PHY_TARGET_INT,
-        .otg_mode = USB_OTG_MODE_DEVICE,
-    };
+    usb_phy_config_t config = {};
+    config.controller = USB_PHY_CTRL_OTG;
+    config.target = USB_PHY_TARGET_INT;
+    config.otg_mode = USB_OTG_MODE_DEVICE;
     usb_phy_handle_t handle = nullptr;
     return usb_new_phy(&config, &handle) == ESP_OK;
 }
