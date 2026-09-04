@@ -88,7 +88,7 @@
 #define MAIN_BOOT_SCREEN_FINISH_RETRY_LOG_FORMAT "boot screen finish retry: attempt=%u/%u"
 #define MAIN_BOOT_SCREEN_FINISH_FAILED_LOG_FORMAT "boot screen finish failed; startup stopped"
 #define MAIN_BOOT_TASK_COMPLETION_DELAYED_LOG_FORMAT \
-    "%s completion delayed; holding startup until resources are released"
+    "%s completion delayed; starting runtime services without waiting indefinitely"
 #define MAIN_STARTUP_RESOURCE_CLEANUP_LOG_FORMAT \
     "startup failed after resource activation; stopping Wi-Fi and parking audio"
 
@@ -284,13 +284,12 @@ static void wait_for_boot_task_completion(EventBits_t done_bit,
     ESP_LOGW(TAG,
              MAIN_BOOT_TASK_COMPLETION_DELAYED_LOG_FORMAT,
              task_name ? task_name : kFallbackBootTaskName);
-    // Both boot tasks own temporary stacks and the connectivity task may also
-    // own Wi-Fi/PM resources. Do not create permanent services against those
-    // resources after only the expected-duration window has elapsed.
-    app_event_group_wait_bits(done_bit,
-                              pdFALSE,
-                              pdTRUE,
-                              portMAX_DELAY);
+    // Network/DNS/TLS failures must never strand the panel on the startup
+    // scene.  In particular, the button/UI/USB services are the recovery path
+    // for an unreachable AP or a stalled portal request.  The boot tasks keep
+    // their own state and may complete later, but runtime service creation is
+    // deliberately bounded by the caller's expected timeout.
+    return;
 }
 
 static void cleanup_failed_startup_resources()

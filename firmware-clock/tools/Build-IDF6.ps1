@@ -4,8 +4,45 @@ $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
 if (-not $env:IDF_PATH) { throw 'Run this script from an ESP-IDF PowerShell session.' }
+$pythonExe = $null
+if ($env:IDF_TOOLS_PATH) {
+  $pythonExe = Get-ChildItem -LiteralPath (Join-Path $env:IDF_TOOLS_PATH 'python') -Directory -ErrorAction SilentlyContinue |
+    Sort-Object Name -Descending |
+    ForEach-Object { Join-Path $_.FullName 'venv/Scripts/python.exe' } |
+    Where-Object { Test-Path -LiteralPath $_ } |
+    Select-Object -First 1
+}
+if (-not $pythonExe) { $pythonExe = (Get-Command python -ErrorAction Stop).Source }
+if (-not $env:IDF_PYTHON_ENV_PATH) {
+  $env:IDF_PYTHON_ENV_PATH = Split-Path -Parent (Split-Path -Parent $pythonExe)
+}
+if (-not $env:ESP_IDF_VERSION) { $env:ESP_IDF_VERSION = '6.0.2' }
+$toolBins = @()
+if ($env:IDF_TOOLS_PATH) {
+  $xtensaBin = Get-ChildItem -LiteralPath (Join-Path $env:IDF_TOOLS_PATH 'xtensa-esp-elf') -Directory -ErrorAction SilentlyContinue |
+    Sort-Object Name -Descending |
+    ForEach-Object { Join-Path $_.FullName 'xtensa-esp-elf/bin' } |
+    Where-Object { Test-Path -LiteralPath (Join-Path $_ 'xtensa-esp32s3-elf-gcc.exe') } |
+    Select-Object -First 1
+  $ninjaBin = Get-ChildItem -LiteralPath (Join-Path $env:IDF_TOOLS_PATH 'ninja') -Directory -ErrorAction SilentlyContinue |
+    Sort-Object Name -Descending |
+    ForEach-Object { Join-Path $_.FullName 'ninja.exe' } |
+    Where-Object { Test-Path -LiteralPath $_ } |
+    ForEach-Object { Split-Path -Parent $_ } |
+    Select-Object -First 1
+  $toolBins = @($xtensaBin, $ninjaBin) | Where-Object { $_ }
+}
+if ($toolBins.Count) { $env:PATH = (($toolBins -join ';') + ';' + $env:PATH) }
+# ESP-IDF invokes ccache when it is installed.  Keep its database and temporary
+# files under this project instead of a potentially protected user profile path.
+$env:CCACHE_DIR = Join-Path $root '.build-cache'
+$env:CCACHE_TEMPDIR = Join-Path $root '.build-cache-tmp'
+New-Item -ItemType Directory -Force -Path $env:CCACHE_DIR, $env:CCACHE_TEMPDIR | Out-Null
 function Invoke-Idf([string[]]$Arguments) {
-  & idf.py @Arguments
+  # Calling the Python entry point works in both ESP-IDF PowerShell and a
+  # standard Windows PowerShell session; invoking idf.py directly is blocked
+  # by some Windows file-association policies.
+  & $pythonExe (Join-Path $env:IDF_PATH 'tools/idf.py') @Arguments
   if ($LASTEXITCODE -ne 0) { throw ("idf.py " + ($Arguments -join ' ') + " failed: " + $LASTEXITCODE) }
 }
 if (-not $SkipReconfigure) { Invoke-Idf @('reconfigure') }
