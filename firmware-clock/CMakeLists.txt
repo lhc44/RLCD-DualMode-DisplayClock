@@ -5,5 +5,8 @@ include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 set(EXTRA_COMPONENT_DIRS
     components/ExternLib/SensorLib
     components/ExternLib/esp_codec_dev
-    components/ExternLib/codec_board)
+    components/ExternLib/codec_board
+    components/ExternLib/leeebo__tinyusb_src)
 project(weather_clock)
+
+
