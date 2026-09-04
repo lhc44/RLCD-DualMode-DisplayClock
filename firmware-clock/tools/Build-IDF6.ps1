@@ -3,7 +3,14 @@ param([switch]$SkipReconfigure)
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
-if (-not $env:IDF_PATH) { throw 'Run this script from an ESP-IDF PowerShell session.' }
+if (-not $env:IDF_PATH) {
+  $bundledIdf = 'C:\esp\v6.0.2\esp-idf'
+  if (-not (Test-Path -LiteralPath $bundledIdf)) { throw 'ESP-IDF v6.0.2 was not found. Install it, then rerun this script.' }
+  $env:IDF_PATH = $bundledIdf
+}
+if (-not $env:IDF_TOOLS_PATH -and (Test-Path -LiteralPath 'C:\Espressif\tools')) {
+  $env:IDF_TOOLS_PATH = 'C:\Espressif\tools'
+}
 $pythonExe = $null
 if ($env:IDF_TOOLS_PATH) {
   $pythonExe = Get-ChildItem -LiteralPath (Join-Path $env:IDF_TOOLS_PATH 'python') -Directory -ErrorAction SilentlyContinue |
