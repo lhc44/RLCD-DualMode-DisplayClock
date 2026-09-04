@@ -66,6 +66,10 @@ class DisplayPort {
     void RLCD_ColorClear(uint8_t color);
     void RLCD_Display();
     void RLCD_DisplayXRange(uint16_t x1, uint16_t x2);
+    // Presents a complete 400x300 packed Mono1 frame in the panel's native
+    // byte order. The method drains queued color DMA before returning, so the
+    // caller may safely recycle its input frame afterwards.
+    bool RLCD_PresentMono1(const uint8_t *frame, size_t frame_len);
 	#if (AlgorithmOptimization != 3)
     void RLCD_SetPortraitPixel(uint16_t x, uint16_t y, uint8_t color);      //竖屏显示
     void RLCD_SetLandscapePixel(uint16_t x, uint16_t y, uint8_t color);     //横屏显示

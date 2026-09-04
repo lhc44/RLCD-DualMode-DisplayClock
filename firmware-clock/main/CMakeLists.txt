@@ -3,6 +3,7 @@ idf_component_register(
     SRCS
         "core/main.cpp"
         "dual_mode/dual_mode_controller.cpp"
+        "usb_display/usb_display_protocol.cpp"
         "core/app_task_startup.cpp"
         "core/app_metadata.cpp"
         "core/app_event_group.cpp"
@@ -222,6 +223,7 @@ idf_component_register(
         "storage"
         "assets"
         "dual_mode"
+        "usb_display"
     REQUIRES
         app_bsp
         port_bsp

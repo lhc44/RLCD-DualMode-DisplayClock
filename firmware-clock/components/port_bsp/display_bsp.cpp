@@ -418,6 +418,18 @@ void DisplayPort::RLCD_Display() {
     }
 }
 
+bool DisplayPort::RLCD_PresentMono1(const uint8_t *frame, size_t frame_len) {
+    const size_t expected = static_cast<size_t>(width_) * static_cast<size_t>(height_) /
+                            static_cast<size_t>(kRlcdPixelsPerByte);
+    if (!ready_ || !DispBuffer || !frame || frame_len != expected ||
+        DisplayLen != static_cast<int>(expected)) {
+        return false;
+    }
+    memcpy(DispBuffer, frame, expected);
+    RLCD_Display();
+    return true;
+}
+
 void DisplayPort::RLCD_DisplayXRange(uint16_t x1, uint16_t x2) {
     if (!ready_ || !DispBuffer || x1 >= (uint16_t)width_ ||
         x2 >= (uint16_t)width_ || x1 > x2) {
