@@ -16,6 +16,7 @@ ESP32-S3-RLCD-4.2 unified firmware that keeps the original local clock and can h
 - `reference/usb-display-stable/`: stable USB display source kept as a protocol reference.
 - `docs/ARCHITECTURE.md`: exact ownership and input rules.
 - `docs/PORTING_PLAN.md`: hardware validation and deferred items.
+- `docs/LOCAL_TEST_AND_RELEASE.md`: Windows build, flash, hardware test, and release checklist.
 - `docs/GITHUB_PUBLISH.md`: clean public-publishing checklist.
 
 ## Build baseline

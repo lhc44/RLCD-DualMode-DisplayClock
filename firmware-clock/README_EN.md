@@ -13,7 +13,6 @@ This is a low-power weather clock firmware project built around the **ESP32-S3**
 - [Third-Party Notices](THIRD_PARTY_NOTICES.md)
 - [Project License](LICENSE)
 - [Minimum-power Power Demo](docs/Power%20Demo/README.md)
-- [Browse every detailed page preview](previews/)
 
 ## Related Projects
 
