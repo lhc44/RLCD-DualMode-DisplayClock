@@ -319,6 +319,7 @@ extern "C" void app_main(void)
     // BOOT/PWR download decision. Runtime chord handling is added in a later
     // port stage and never participates in reset-time GPIO sampling.
     dual_mode_init();
+    ESP_LOGI(TAG, "dual mode initialized: CLOCK");
 
     if (!ota_runtime_state_init()) {
         ESP_LOGE(TAG, MAIN_OTA_RUNTIME_STATE_INIT_FAILED_LOG_FORMAT);
@@ -366,8 +367,8 @@ extern "C" void app_main(void)
     }
     display.RLCD_ColorClear(ColorWhite);
     display.RLCD_Display();
-    if (!usb_display_service_init(display)) {
-        ESP_LOGW(TAG, "USB secondary-display transport unavailable; continuing clock mode");
+    if (!start_button_task_early()) {
+        ESP_LOGW(TAG, "button input service unavailable during startup");
     }
     if (!Lvgl_PortInit(kDisplayWidth, kDisplayHeight, flush_callback)) {
         ESP_LOGE(TAG, MAIN_LVGL_INIT_FAILED_LOG_FORMAT);
@@ -407,6 +408,13 @@ extern "C" void app_main(void)
         return;
     }
     startup_screen_mark_finished();
+
+    // Enumerate the Windows display only after the local boot scene and the
+    // physical recovery chord are live. This prevents an old retained USB
+    // image from looking like the selected boot mode.
+    if (!usb_display_service_init(display)) {
+        ESP_LOGW(TAG, "USB secondary-display transport unavailable; continuing clock mode");
+    }
 
     // A transient early allocation or PM-driver failure must not permanently
     // disable runtime sleep or network/audio protection. Successful resources

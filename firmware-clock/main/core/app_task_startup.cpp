@@ -57,12 +57,14 @@ struct AppTaskSpec {
     BaseType_t core_id;
 };
 
+constexpr AppTaskSpec kButtonTaskSpec = {
+    button_task, kButtonTaskName, kButtonTaskStack, kInputTaskPriority, false, kUiTaskCore};
+
 constexpr AppTaskSpec kRegularAppTasks[] = {
     {network_sync_task, kNetworkSyncTaskName, kNetworkSyncTaskStack, kHighServiceTaskPriority, false, kNetworkTaskCore},
     {ota_task, kOtaTaskName, kOtaTaskStack, kHighServiceTaskPriority, false, kNetworkTaskCore},
     {housekeeping_task, kHousekeepingTaskName, kHousekeepingTaskStack, kNormalServiceTaskPriority, false, kUiTaskCore},
     {ui_task, kUiTaskName, kUiTaskStack, kNormalServiceTaskPriority, true, kUiTaskCore},
-    {button_task, kButtonTaskName, kButtonTaskStack, kInputTaskPriority, false, kUiTaskCore},
     {alarm_task, kAlarmTaskName, kAlarmTaskStack, kNormalServiceTaskPriority, false, kUiTaskCore},
     {pomodoro_task, kPomodoroTaskName, kPomodoroTaskStack, kNormalServiceTaskPriority, false, kUiTaskCore},
 };
@@ -143,6 +145,16 @@ TaskHandle_t create_app_task(const AppTaskSpec &spec)
     return handle;
 }
 } // namespace
+
+bool start_button_task_early()
+{
+    static TaskHandle_t button_task_handle = nullptr;
+    if (button_task_handle) {
+        return true;
+    }
+    button_task_handle = create_app_task(kButtonTaskSpec);
+    return button_task_handle != nullptr;
+}
 
 void create_regular_app_tasks()
 {
