@@ -46,6 +46,11 @@ size_t UsbDisplayMono1Receiver::size() const
     return complete() ? received_ : 0;
 }
 
+size_t UsbDisplayMono1Receiver::remaining() const
+{
+    return active_ ? kUsbDisplayMono1Bytes - received_ : 0;
+}
+
 void UsbDisplayMono1Receiver::reset()
 {
     received_ = 0;

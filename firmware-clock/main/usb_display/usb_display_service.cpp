@@ -18,7 +18,6 @@ extern "C" {
 namespace {
 constexpr uint32_t kUsbTaskStack = 4096;
 constexpr UBaseType_t kUsbTaskPriority = 5;
-constexpr uint8_t kVendorInterface = 0;
 constexpr size_t kReadBufferBytes = 64;
 constexpr char kTag[] = "usb_display";
 
@@ -51,12 +50,19 @@ void consume_vendor_bytes(const uint8_t *data, size_t length)
             }
         }
 
-        if (!s_receiver.append(data, length)) {
+        // A USB bulk read can straddle the final payload byte and the next
+        // header. Consume only this frame's remaining bytes, then let the
+        // loop parse any following header from the same read.
+        const size_t take = s_receiver.remaining() < length
+                                ? s_receiver.remaining()
+                                : length;
+        if (take == 0 || !s_receiver.append(data, take)) {
             ESP_LOGW(kTag, "drop malformed Mono1 payload");
-            continue;
+            s_receiver.reset();
+            return;
         }
-        data += length;
-        length = 0;
+        data += take;
+        length -= take;
         if (s_receiver.complete()) {
             if (dual_mode_snapshot_load().mode == DualMode::Display && s_display) {
                 (void)s_display->RLCD_PresentMono1(s_receiver.data(), s_receiver.size());

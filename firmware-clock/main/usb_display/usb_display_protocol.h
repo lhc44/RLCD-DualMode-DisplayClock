@@ -52,6 +52,7 @@ public:
     bool complete() const;
     const uint8_t *data() const;
     size_t size() const;
+    size_t remaining() const;
     void reset();
 
 private:
