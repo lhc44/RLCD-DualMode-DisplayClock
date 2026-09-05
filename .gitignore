@@ -4,6 +4,8 @@ managed_components/
 sdkconfig
 sdkconfig.old
 .sdkconfig*
+.build-cache/
+.build-cache-tmp/
 
 # Local configuration and credentials
 main/wifi_secrets.h
