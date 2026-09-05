@@ -408,18 +408,18 @@ extern "C" void app_main(void)
     }
     startup_screen_mark_finished();
 
+    // Bring the original clock services online before adding the optional
+    // Windows transport.  The panel, buttons and local settings are therefore
+    // usable even if host USB enumeration is delayed or fails.
+    init_power_management();
+    create_regular_app_tasks();
+
     // Enumerate the Windows display only after the local boot scene and the
     // physical recovery chord are live. This prevents an old retained USB
     // image from looking like the selected boot mode.
     if (!usb_display_service_init(display)) {
         ESP_LOGW(TAG, "USB secondary-display transport unavailable; continuing clock mode");
     }
-
-    // A transient early allocation or PM-driver failure must not permanently
-    // disable runtime sleep or network/audio protection. Successful resources
-    // are retained, so the normal path only checks the ready catalog.
-    init_power_management();
-    create_regular_app_tasks();
 
     if (setup_prompt_playback_pending()) {
         vTaskDelay(pdMS_TO_TICKS(kSetupPromptStartDelayMs));

@@ -17,8 +17,12 @@ extern "C" {
 
 namespace {
 constexpr uint32_t kUsbTaskStack = 4096;
-constexpr UBaseType_t kUsbTaskPriority = 5;
-constexpr size_t kReadBufferBytes = 64;
+// Keep USB transport below the clock/network service priorities and pin it to
+// core 0.  The original clock UI and both physical buttons live on core 1;
+// this keeps a busy host bulk endpoint from delaying that interaction path.
+constexpr UBaseType_t kUsbTaskPriority = 1;
+constexpr BaseType_t kUsbTaskCore = 0;
+constexpr size_t kReadBufferBytes = 512;
 constexpr char kTag[] = "usb_display";
 
 DisplayPort *s_display = nullptr;
@@ -76,6 +80,11 @@ void usb_task(void *)
 {
     for (;;) {
         tud_task();
+        // tud_task() returns immediately when there is no bus work.  A tight
+        // priority-5 loop here previously consumed an entire scheduler core
+        // immediately after the boot animation.  Yield keeps USB responsive
+        // while allowing the normal clock services to start and run.
+        taskYIELD();
     }
 }
 
@@ -100,8 +109,8 @@ bool usb_display_service_init(DisplayPort &display)
         return false;
     }
     s_display = &display;
-    if (xTaskCreate(usb_task, "usb_display", kUsbTaskStack, nullptr,
-                    kUsbTaskPriority, nullptr) != pdPASS) {
+    if (xTaskCreatePinnedToCore(usb_task, "usb_display", kUsbTaskStack, nullptr,
+                                kUsbTaskPriority, nullptr, kUsbTaskCore) != pdPASS) {
         s_display = nullptr;
         return false;
     }
