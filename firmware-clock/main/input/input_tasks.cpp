@@ -84,6 +84,23 @@ bool button_press_is_long(TickType_t held)
     return held >= kButtonLongPressTicks;
 }
 
+bool toggle_runtime_display_mode()
+{
+    if (!dual_mode_toggle_from_runtime_chord()) {
+        return false;
+    }
+    const DualModeSnapshot snapshot = dual_mode_snapshot_load();
+    ESP_LOGI(TAG,
+             BUTTON_DUAL_MODE_SWITCH_LOG_FORMAT,
+             static_cast<int>(snapshot.mode));
+    usb_display_service_set_display_active(snapshot.mode == DualMode::Display);
+    if (snapshot.mode == DualMode::Display) {
+        usb_display_service_request_cached_frame();
+    }
+    notify_ui_task();
+    return true;
+}
+
 void return_to_system_settings_item(int selection, TickType_t now)
 {
     settings_page_request();
@@ -251,6 +268,17 @@ void button_task(void *)
             if (boot_pressed_since != 0 &&
                 (boot_press_stopped_alert || runtime_mode_chord_consumed)) {
                 // 提醒音播放期间任意按键只负责停止音频，不继续执行原按键动作。
+            } else if (boot_pressed_since != 0 &&
+                       !settings_page_requested() &&
+                       !info_page_requested() &&
+                       !network_diag_page_requested() &&
+                       !setup_portal_active_load() &&
+                       !battery_low_mode_load() &&
+                       now - boot_pressed_since >= kRuntimeModeChordHoldTicks) {
+                // Dedicated fallback: BOOT long-press switches roles without
+                // relying on a two-button chord.  BOOT short-press keeps its
+                // original next-page behavior.
+                runtime_mode_chord_consumed = toggle_runtime_display_mode();
             } else if (boot_pressed_since != 0 && settings_page_requested()) {
                 TickType_t held = now - boot_pressed_since;
                 if (button_press_is_short(held)) {
@@ -367,7 +395,7 @@ void button_task(void *)
                 runtime_mode_chord_since = now;
             } else if (!runtime_mode_chord_consumed &&
                        now - runtime_mode_chord_since >= kRuntimeModeChordHoldTicks) {
-                const bool switched = dual_mode_toggle_from_runtime_chord();
+                const bool switched = toggle_runtime_display_mode();
                 if (switched) {
                     runtime_mode_chord_consumed = true;
                     if (settings_page_requested()) {
@@ -377,18 +405,6 @@ void button_task(void *)
                     }
                     key_press_opened_settings = true;
                     key_long_handled = true;
-                    const DualModeSnapshot snapshot = dual_mode_snapshot_load();
-                    ESP_LOGI(TAG,
-                             BUTTON_DUAL_MODE_SWITCH_LOG_FORMAT,
-                             static_cast<int>(snapshot.mode));
-                    // An indirect-display adapter is created by Windows when
-                    // the matching USB PID arrives.  The controller therefore
-                    // reconnects the native USB port for every role change.
-                    usb_display_service_set_display_active(snapshot.mode == DualMode::Display);
-                    if (snapshot.mode == DualMode::Display) {
-                        usb_display_service_request_cached_frame();
-                    }
-                    notify_ui_task();
                 }
             }
         } else if (!boot_pressed && !key_pressed) {

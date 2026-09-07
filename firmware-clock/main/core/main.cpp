@@ -318,7 +318,8 @@ extern "C" void app_main(void)
     // BOOT/PWR download decision. Runtime chord handling is added in a later
     // port stage and never participates in reset-time GPIO sampling.
     dual_mode_init();
-    ESP_LOGI(TAG, "dual mode initialized: CLOCK");
+    ESP_LOGI(TAG, "dual mode initialized: %s",
+             dual_mode_snapshot_load().mode == DualMode::Display ? "DISPLAY" : "CLOCK");
 
     if (!ota_runtime_state_init()) {
         ESP_LOGE(TAG, MAIN_OTA_RUNTIME_STATE_INIT_FAILED_LOG_FORMAT);

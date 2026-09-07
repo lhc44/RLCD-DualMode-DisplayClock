@@ -28,6 +28,7 @@ constexpr uint32_t kUsbTaskStack = 4096;
 constexpr UBaseType_t kUsbTaskPriority = 5;
 constexpr BaseType_t kUsbTaskCore = 0;
 constexpr size_t kReadBufferBytes = 512;
+constexpr TickType_t kClockModeUsbPollTicks = pdMS_TO_TICKS(20);
 constexpr char kTag[] = "usb_display";
 
 DisplayPort *s_display = nullptr;
@@ -126,10 +127,14 @@ void usb_task(void *)
         tud_task();
         reconnect_usb_if_requested();
         present_cached_frame_if_requested();
-        // Yielding alone immediately schedules this priority-5 task again and
-        // starves CPU0 idle.  The 8 KB RX queue safely covers this scheduler
-        // interval while giving the normal clock runtime a real slot.
-        vTaskDelay(pdMS_TO_TICKS(1));
+        // There is no Windows frame producer while the device advertises the
+        // clock PID.  Poll slowly in that mode so the original Wi-Fi/NTP and
+        // weather tasks retain CPU0; switch to the short transport cadence as
+        // soon as Display mode (or its pending reconnect) is selected.
+        const bool display_transport_active =
+            s_enumerate_as_display.load(std::memory_order_acquire) ||
+            s_usb_reconnect_requested.load(std::memory_order_acquire);
+        vTaskDelay(display_transport_active ? pdMS_TO_TICKS(1) : kClockModeUsbPollTicks);
     }
 }
 
@@ -154,6 +159,11 @@ bool usb_display_service_init(DisplayPort &display)
         return false;
     }
     s_display = &display;
+    // A retained Display selection may have survived a watchdog reset.  Set
+    // the PID before the first descriptor request so Windows binds IDD during
+    // normal USB enumeration instead of waiting for another button event.
+    s_enumerate_as_display.store(dual_mode_snapshot_load().mode == DualMode::Display,
+                                 std::memory_order_release);
     if (xTaskCreatePinnedToCore(usb_task, "usb_display", kUsbTaskStack, nullptr,
                                 kUsbTaskPriority, nullptr, kUsbTaskCore) != pdPASS) {
         s_display = nullptr;
