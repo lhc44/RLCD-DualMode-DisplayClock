@@ -1,5 +1,6 @@
 #include <string.h>
 #include "tusb.h"
+#include "usb_display_device_identity.h"
 
 enum { kVendorInterface = 0, kInterfaceCount = 1 };
 enum { kVendorEndpoint = 1 };
@@ -23,7 +24,12 @@ static const tusb_desc_device_t kDeviceDescriptor = {
 
 uint8_t const *tud_descriptor_device_cb(void)
 {
-    return (uint8_t const *)&kDeviceDescriptor;
+    // Windows IDD creation is a PnP action, not a vendor-packet command.  A
+    // mode change therefore reconnects with the IDD PID only in Display mode.
+    static tusb_desc_device_t descriptor;
+    descriptor = kDeviceDescriptor;
+    descriptor.idProduct = usb_display_service_enumerate_as_display() ? 0x2986 : 0x2987;
+    return (uint8_t const *)&descriptor;
 }
 
 #define USB_DISPLAY_CONFIG_TOTAL_LEN (TUD_CONFIG_DESC_LEN + TUD_VENDOR_DESC_LEN)
@@ -42,7 +48,7 @@ uint8_t const *tud_descriptor_configuration_cb(uint8_t index)
 static const char *const kStringDescriptors[] = {
     (const char[]){0x09, 0x04},
     "Espressif",
-    "ESP32-S3-RLCD-4.2_R400x300_Emono1_Fps60_Bl16",
+    "ESP32-S3-RLCD-4.2 Dual-Mode Clock",
     "012-2021",
     "esp32s3udisp0_R400x300_Emono1_Fps60_Bl16",
 };

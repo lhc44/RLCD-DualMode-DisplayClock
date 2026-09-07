@@ -381,6 +381,10 @@ void button_task(void *)
                     ESP_LOGI(TAG,
                              BUTTON_DUAL_MODE_SWITCH_LOG_FORMAT,
                              static_cast<int>(snapshot.mode));
+                    // An indirect-display adapter is created by Windows when
+                    // the matching USB PID arrives.  The controller therefore
+                    // reconnects the native USB port for every role change.
+                    usb_display_service_set_display_active(snapshot.mode == DualMode::Display);
                     if (snapshot.mode == DualMode::Display) {
                         usb_display_service_request_cached_frame();
                     }

@@ -2,6 +2,7 @@
 
 #include "dual_mode_controller.h"
 #include "display_bsp.h"
+#include "usb_display_device_identity.h"
 #include "usb_display_protocol.h"
 
 #include <atomic>
@@ -34,6 +35,8 @@ UsbDisplayMono1Receiver s_receiver;
 uint8_t s_last_frame[kUsbDisplayMono1Bytes] = {};
 std::atomic<bool> s_last_frame_valid{false};
 std::atomic<bool> s_present_cached_frame_requested{false};
+std::atomic<bool> s_enumerate_as_display{false};
+std::atomic<bool> s_usb_reconnect_requested{false};
 volatile bool s_host_attached = false;
 
 void consume_vendor_bytes(const uint8_t *data, size_t length)
@@ -99,10 +102,29 @@ void present_cached_frame_if_requested()
     (void)s_display->RLCD_PresentMono1(s_last_frame, sizeof(s_last_frame));
 }
 
+void reconnect_usb_if_requested()
+{
+    if (!s_usb_reconnect_requested.exchange(false, std::memory_order_acq_rel)) {
+        return;
+    }
+
+    // Make Windows observe a genuine removal/arrival so the IDD UMDF driver
+    // creates an adapter for PID 2986, or removes it for the clock PID 2987.
+    // The delay is longer than Windows' USB disconnect debounce interval.
+    tud_disconnect();
+    s_host_attached = false;
+    s_receiver.reset();
+    s_last_frame_valid.store(false, std::memory_order_release);
+    s_present_cached_frame_requested.store(false, std::memory_order_release);
+    vTaskDelay(pdMS_TO_TICKS(350));
+    tud_connect();
+}
+
 void usb_task(void *)
 {
     for (;;) {
         tud_task();
+        reconnect_usb_if_requested();
         present_cached_frame_if_requested();
         // This is deliberately the same high-priority, yielding USB service
         // model as the proven stand-alone display firmware.  The core pinning
@@ -148,6 +170,19 @@ bool usb_display_service_host_attached()
 void usb_display_service_request_cached_frame()
 {
     s_present_cached_frame_requested.store(true, std::memory_order_release);
+}
+
+void usb_display_service_set_display_active(bool active)
+{
+    const bool previous = s_enumerate_as_display.exchange(active, std::memory_order_acq_rel);
+    if (previous != active) {
+        s_usb_reconnect_requested.store(true, std::memory_order_release);
+    }
+}
+
+extern "C" bool usb_display_service_enumerate_as_display(void)
+{
+    return s_enumerate_as_display.load(std::memory_order_acquire);
 }
 
 extern "C" void tud_vendor_rx_cb(uint8_t interface_number)
