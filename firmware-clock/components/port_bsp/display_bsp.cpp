@@ -3,6 +3,7 @@
 #include <initializer_list>
 #include <limits>
 #include <freertos/FreeRTOS.h>
+#include <freertos/semphr.h>
 #include <esp_log.h>
 #include <esp_heap_caps.h>
 #include "display_bsp.h"
@@ -169,6 +170,11 @@ width_(width),
 height_(height),
 spihost_(spihost)
 {
+    frame_mutex_ = xSemaphoreCreateRecursiveMutex();
+    if (!frame_mutex_) {
+        ESP_LOGE(kDisplayLogTag, "RLCD frame mutex allocation failed");
+        return;
+    }
     if (width_ <= 0 || height_ <= 0 ||
         width_ > std::numeric_limits<uint16_t>::max() ||
         height_ > std::numeric_limits<uint16_t>::max() ||
@@ -312,10 +318,26 @@ void DisplayPort::ReleaseResources() {
         LogDisplayReleaseFailure("SPI bus", spi_bus_free(spihost_));
         spi_bus_initialized_ = false;
     }
+    if (frame_mutex_) {
+        vSemaphoreDelete(frame_mutex_);
+        frame_mutex_ = NULL;
+    }
 }
 
 bool DisplayPort::IsReady() const {
     return ready_;
+}
+
+bool DisplayPort::RLCD_BeginFrame(TickType_t timeout)
+{
+    return frame_mutex_ && xSemaphoreTakeRecursive(frame_mutex_, timeout) == pdTRUE;
+}
+
+void DisplayPort::RLCD_EndFrame()
+{
+    if (frame_mutex_) {
+        (void)xSemaphoreGiveRecursive(frame_mutex_);
+    }
 }
 
 void DisplayPort::RLCD_Init() {
@@ -428,8 +450,12 @@ bool DisplayPort::RLCD_PresentMono1(const uint8_t *frame, size_t frame_len) {
         DisplayLen != static_cast<int>(expected)) {
         return false;
     }
+    if (!RLCD_BeginFrame(pdMS_TO_TICKS(100))) {
+        return false;
+    }
     memcpy(DispBuffer, frame, expected);
     RLCD_Display();
+    RLCD_EndFrame();
     return true;
 }
 

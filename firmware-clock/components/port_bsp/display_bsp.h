@@ -6,6 +6,8 @@
 #include <esp_lcd_panel_io.h>
 #include <esp_lcd_panel_vendor.h>
 #include <esp_lcd_panel_ops.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/semphr.h>
 
 
 #ifndef AlgorithmOptimization
@@ -38,6 +40,7 @@ class DisplayPort {
     bool                reset_gpio_configured_ = false;
     bool                ready_ = false;
     bool                initializing_ = false;
+    SemaphoreHandle_t   frame_mutex_ = NULL;
 #if (AlgorithmOptimization == 3)
     uint16_t *PixelIndexLUT = NULL;
     uint8_t *PixelBitLUT = NULL;
@@ -62,6 +65,11 @@ class DisplayPort {
     DisplayPort(const DisplayPort &) = delete;
     DisplayPort &operator=(const DisplayPort &) = delete;
     bool IsReady() const;
+    // Serializes ownership of both the packed frame buffer and the RLCD SPI
+    // bus. A caller that changes pixels must keep this lock through its final
+    // Display/DisplayXRange call; USB Mono1 presents acquire it internally.
+    bool RLCD_BeginFrame(TickType_t timeout = portMAX_DELAY);
+    void RLCD_EndFrame();
     void RLCD_Init();
     void RLCD_ColorClear(uint8_t color);
     void RLCD_Display();

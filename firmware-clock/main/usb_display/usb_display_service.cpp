@@ -35,6 +35,7 @@ UsbDisplayMono1Receiver s_receiver;
 uint8_t s_last_frame[kUsbDisplayMono1Bytes] = {};
 std::atomic<bool> s_last_frame_valid{false};
 std::atomic<bool> s_present_cached_frame_requested{false};
+std::atomic<bool> s_display_mode_requested{false};
 std::atomic<bool> s_panel_display_active{false};
 volatile bool s_host_attached = false;
 
@@ -83,8 +84,9 @@ void consume_vendor_bytes(const uint8_t *data, size_t length)
             // image to present.
             memcpy(s_last_frame, s_receiver.data(), s_receiver.size());
             s_last_frame_valid.store(true, std::memory_order_release);
-            if (dual_mode_snapshot_load().mode == DualMode::Display && s_display) {
-                (void)s_display->RLCD_PresentMono1(s_last_frame, sizeof(s_last_frame));
+            if (s_display_mode_requested.load(std::memory_order_acquire) && s_display &&
+                s_display->RLCD_PresentMono1(s_last_frame, sizeof(s_last_frame))) {
+                s_panel_display_active.store(true, std::memory_order_release);
             }
             s_receiver.reset();
         }
@@ -95,10 +97,12 @@ void present_cached_frame_if_requested()
 {
     if (!s_present_cached_frame_requested.exchange(false, std::memory_order_acq_rel) ||
         !s_display || !s_last_frame_valid.load(std::memory_order_acquire) ||
-        dual_mode_snapshot_load().mode != DualMode::Display) {
+        !s_display_mode_requested.load(std::memory_order_acquire)) {
         return;
     }
-    (void)s_display->RLCD_PresentMono1(s_last_frame, sizeof(s_last_frame));
+    if (s_display->RLCD_PresentMono1(s_last_frame, sizeof(s_last_frame))) {
+        s_panel_display_active.store(true, std::memory_order_release);
+    }
 }
 
 void usb_task(void *)
@@ -144,7 +148,7 @@ bool usb_display_service_init(DisplayPort &display)
         return false;
     }
     s_display = &display;
-    s_panel_display_active.store(dual_mode_snapshot_load().mode == DualMode::Display,
+    s_display_mode_requested.store(dual_mode_snapshot_load().mode == DualMode::Display,
                                  std::memory_order_release);
     if (xTaskCreatePinnedToCore(usb_task, "usb_display", kUsbTaskStack, nullptr,
                                 kUsbTaskPriority, nullptr, kUsbTaskCore) != pdPASS) {
@@ -159,6 +163,11 @@ bool usb_display_service_host_attached()
     return s_host_attached;
 }
 
+bool usb_display_service_panel_owned()
+{
+    return s_panel_display_active.load(std::memory_order_acquire);
+}
+
 void usb_display_service_request_cached_frame()
 {
     s_present_cached_frame_requested.store(true, std::memory_order_release);
@@ -166,7 +175,11 @@ void usb_display_service_request_cached_frame()
 
 void usb_display_service_set_display_active(bool active)
 {
-    s_panel_display_active.store(active, std::memory_order_release);
+    s_display_mode_requested.store(active, std::memory_order_release);
+    // Keep clock refreshes running until the USB source supplies a complete
+    // frame. This makes a missing Windows stream observable as a live clock,
+    // rather than a misleading frozen final clock frame.
+    s_panel_display_active.store(false, std::memory_order_release);
 }
 
 extern "C" bool usb_display_service_enumerate_as_display(void)
