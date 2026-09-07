@@ -89,6 +89,14 @@ bool toggle_runtime_display_mode()
     if (!dual_mode_toggle_from_runtime_chord()) {
         return false;
     }
+    // A mode command always takes ownership away from the local settings
+    // page.  This makes the dedicated KEY gesture deterministic even if a
+    // previous short press left a menu open.
+    if (settings_page_requested()) {
+        settings_page_clear();
+        reset_settings_confirmation();
+        reset_settings_navigation_state();
+    }
     const DualModeSnapshot snapshot = dual_mode_snapshot_load();
     ESP_LOGI(TAG,
              BUTTON_DUAL_MODE_SWITCH_LOG_FORMAT,
@@ -308,11 +316,6 @@ void button_task(void *)
                 // safely select the USB display without using strapping GPIO0.
             } else if (!key_press_stopped_alert &&
                        !key_long_handled &&
-                       !settings_page_requested() &&
-                       !info_page_requested() &&
-                       !network_diag_page_requested() &&
-                       !setup_portal_active_load() &&
-                       !battery_low_mode_load() &&
                        now - key_pressed_since >= kRuntimeModeChordHoldTicks) {
                 key_long_handled = toggle_runtime_display_mode();
             } else if (!key_press_stopped_alert &&
