@@ -28,7 +28,6 @@ constexpr uint32_t kUsbTaskStack = 4096;
 constexpr UBaseType_t kUsbTaskPriority = 5;
 constexpr BaseType_t kUsbTaskCore = 0;
 constexpr size_t kReadBufferBytes = 512;
-constexpr TickType_t kClockModeUsbPollTicks = pdMS_TO_TICKS(20);
 constexpr char kTag[] = "usb_display";
 
 DisplayPort *s_display = nullptr;
@@ -107,13 +106,11 @@ void usb_task(void *)
     for (;;) {
         tud_task();
         present_cached_frame_if_requested();
-        // There is no Windows frame producer while the device advertises the
-        // clock PID.  Poll slowly in that mode so the original Wi-Fi/NTP and
-        // weather tasks retain CPU0; switch to the short transport cadence as
-        // soon as Display mode (or its pending reconnect) is selected.
-        const bool display_transport_active =
-            s_panel_display_active.load(std::memory_order_acquire);
-        vTaskDelay(display_transport_active ? pdMS_TO_TICKS(1) : kClockModeUsbPollTicks);
+        // Keep the native USB control path alive even while the clock owns
+        // the panel.  Windows binds the indirect-display driver at boot, and
+        // its descriptor/control exchanges time out if the device loop only
+        // runs at the old 20 ms clock-mode cadence.
+        vTaskDelay(pdMS_TO_TICKS(1));
     }
 }
 
@@ -124,7 +121,16 @@ bool init_usb_phy()
     config.target = USB_PHY_TARGET_INT;
     config.otg_mode = USB_OTG_MODE_DEVICE;
     usb_phy_handle_t handle = nullptr;
-    return usb_new_phy(&config, &handle) == ESP_OK;
+    const esp_err_t err = usb_new_phy(&config, &handle);
+    // ESP-IDF may report INVALID_STATE when the OTG PHY was brought up by an
+    // earlier startup service.  The known-good standalone firmware continues
+    // to TinyUSB in that state; aborting here leaves Windows with no 303A:2986
+    // device even though the physical controller is ready.
+    if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
+        ESP_LOGE(kTag, "USB PHY initialization failed: %s", esp_err_to_name(err));
+        return false;
+    }
+    return true;
 }
 }
 

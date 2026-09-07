@@ -45,7 +45,7 @@ uint8_t const *tud_descriptor_configuration_cb(uint8_t index)
 static const char *const kStringDescriptors[] = {
     (const char[]){0x09, 0x04},
     "Espressif",
-    "ESP32-S3-RLCD-4.2 Dual-Mode Clock",
+    "ESP32-S3-RLCD-4.2_R400x300_Emono1_Fps60_Bl16",
     "012-2021",
     "esp32s3udisp0_R400x300_Emono1_Fps60_Bl16",
 };
