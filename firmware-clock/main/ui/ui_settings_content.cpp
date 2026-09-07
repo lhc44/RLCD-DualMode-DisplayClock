@@ -21,6 +21,7 @@ namespace {
 constexpr const char *kSettingsNetworkSyncTimeText = "同步时间";
 constexpr const char *kSettingsNetworkSyncWeatherText = "同步天气";
 constexpr const char *kSettingsNetworkSayingText = "更新一言";
+constexpr const char *kSettingsNetworkWifiText = "更换 Wi-Fi";
 constexpr const char *kSettingsWeatherCityManualFormat = "天气城市 %s";
 constexpr const char *kSettingsWeatherCityAutoText = "天气城市 自动";
 constexpr const char *kSettingsSoundVolumeFormat = "音量 %d%%";
@@ -90,6 +91,7 @@ void populate_settings_secondary_items(
     char secondary_items[][kSettingsSecondaryTextSize])
 {
     if (primary == kSettingsPrimaryNetwork) {
+        set_secondary_text(secondary_items, kNetworkSettingsWifiItem, kSettingsNetworkWifiText);
         set_secondary_text(secondary_items, kNetworkSettingsNtpItem, kSettingsNetworkSyncTimeText);
         set_secondary_text(secondary_items, kNetworkSettingsWeatherItem, kSettingsNetworkSyncWeatherText);
         set_secondary_text(secondary_items, kNetworkSettingsSayingItem, kSettingsNetworkSayingText);

@@ -19,3 +19,11 @@ Set-ExecutionPolicy -Scope Process Bypass
 After the flash it boots clock mode (`ota_0`). Long-press **KEY** (GPIO18) for about 1.5 seconds to reboot into USB display mode (`ota_1`). Long-press **KEY** again in USB display mode to reboot back into clock mode.
 
 The USB display driver binds only while `ota_1` is running. It exposes the native 400x300 Mono1 secondary display as before.
+
+## Clock Wi-Fi and sound settings
+
+In Clock mode, open `设置 -> 网络 -> 更换 Wi-Fi` to start the temporary setup hotspot and
+portal. Select the new main/backup network there. The portal retains the saved weather API
+settings; the rest of the Clock settings (pages, alarms, gallery, sounds and display settings)
+are not reset. The sound-volume selector includes `0%` (mute), followed by `5%, 10%, 20%,
+40%, 60%, 80%, 100%`.

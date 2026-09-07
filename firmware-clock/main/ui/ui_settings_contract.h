@@ -6,10 +6,11 @@ inline constexpr int kSettingsSecondaryMaxCount = 7;
 inline constexpr int kSettingsLabelCount =
     kSettingsPrimaryCount + kSettingsSecondaryMaxCount;
 
-inline constexpr int kNetworkSettingsNtpItem = 0;
-inline constexpr int kNetworkSettingsWeatherItem = 1;
-inline constexpr int kNetworkSettingsSayingItem = 2;
-inline constexpr int kNetworkSettingsWeatherCityItem = 3;
+inline constexpr int kNetworkSettingsWifiItem = 0;
+inline constexpr int kNetworkSettingsNtpItem = 1;
+inline constexpr int kNetworkSettingsWeatherItem = 2;
+inline constexpr int kNetworkSettingsSayingItem = 3;
+inline constexpr int kNetworkSettingsWeatherCityItem = 4;
 inline constexpr int kNetworkSettingsSecondaryCount =
     kNetworkSettingsWeatherCityItem + 1;
 

@@ -53,6 +53,7 @@ constexpr const char *kManualWeatherCityAutoFeedback = "已恢复自动定位";
 constexpr const char *kManualNtpSyncFeedback = "正在同步时间...";
 constexpr const char *kManualWeatherSyncFeedback = "正在同步天气...";
 constexpr const char *kManualSayingSyncFeedback = "正在更新一言...";
+constexpr const char *kWifiSetupInstructionFeedback = "请连接热点并选择新 Wi-Fi";
 constexpr const char *kSoundVolumeFeedbackFormat = "音量 %d%%";
 constexpr const char *kSoundIndexFeedbackFormat = "声音 %d";
 constexpr const char *kHourlyChimeEnabledFeedback = "整点提醒已开启";
@@ -207,6 +208,14 @@ void handle_page_order_settings_action(
 
 void handle_network_settings_action(int selected)
 {
+    if (selected == kNetworkSettingsWifiItem) {
+        if (!request_setup_portal_start()) {
+            set_settings_feedback(kSetupStartFailedFeedback, kSettingsFeedbackDefaultMs);
+            return;
+        }
+        set_settings_feedback(kWifiSetupInstructionFeedback, kSettingsFeedbackInstructionMs);
+        return;
+    }
     if (selected == kNetworkSettingsWeatherCityItem) {
         if (!manual_weather_city_is_configured()) {
             set_settings_feedback(kManualWeatherCityEditFeedback, kSettingsFeedbackDefaultMs);
