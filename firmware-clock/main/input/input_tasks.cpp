@@ -268,17 +268,6 @@ void button_task(void *)
             if (boot_pressed_since != 0 &&
                 (boot_press_stopped_alert || runtime_mode_chord_consumed)) {
                 // 提醒音播放期间任意按键只负责停止音频，不继续执行原按键动作。
-            } else if (boot_pressed_since != 0 &&
-                       !settings_page_requested() &&
-                       !info_page_requested() &&
-                       !network_diag_page_requested() &&
-                       !setup_portal_active_load() &&
-                       !battery_low_mode_load() &&
-                       now - boot_pressed_since >= kRuntimeModeChordHoldTicks) {
-                // Dedicated fallback: BOOT long-press switches roles without
-                // relying on a two-button chord.  BOOT short-press keeps its
-                // original next-page behavior.
-                runtime_mode_chord_consumed = toggle_runtime_display_mode();
             } else if (boot_pressed_since != 0 && settings_page_requested()) {
                 TickType_t held = now - boot_pressed_since;
                 if (button_press_is_short(held)) {
@@ -314,13 +303,18 @@ void button_task(void *)
                 if (settings_page_requested()) {
                     settings_activity_record(now);
                 }
-                if (!key_press_stopped_alert && !boot_pressed &&
-                    !settings_page_requested() && !info_page_requested() && !network_diag_page_requested()) {
-                    ESP_LOGI(TAG, BUTTON_SHOW_SETTINGS_LOG_FORMAT);
-                    enter_settings_primary_menu(now);
-                    key_press_opened_settings = true;
-                    notify_ui_task();
-                }
+                // Delay the short-press action until release.  GPIO18 is the
+                // board's dedicated application key, so its long press can
+                // safely select the USB display without using strapping GPIO0.
+            } else if (!key_press_stopped_alert &&
+                       !key_long_handled &&
+                       !settings_page_requested() &&
+                       !info_page_requested() &&
+                       !network_diag_page_requested() &&
+                       !setup_portal_active_load() &&
+                       !battery_low_mode_load() &&
+                       now - key_pressed_since >= kRuntimeModeChordHoldTicks) {
+                key_long_handled = toggle_runtime_display_mode();
             } else if (!key_press_stopped_alert &&
                        !key_press_opened_settings &&
                        !key_long_handled &&
@@ -349,6 +343,20 @@ void button_task(void *)
                 notify_ui_task();
             }
         } else {
+            if (key_pressed_since != 0 &&
+                !key_press_stopped_alert &&
+                !runtime_mode_chord_consumed &&
+                !key_press_opened_settings && !key_long_handled &&
+                !settings_page_requested() &&
+                !info_page_requested() && !network_diag_page_requested()) {
+                TickType_t held = now - key_pressed_since;
+                if (button_press_is_short(held)) {
+                    ESP_LOGI(TAG, BUTTON_SHOW_SETTINGS_LOG_FORMAT);
+                    enter_settings_primary_menu(now);
+                    key_press_opened_settings = true;
+                    notify_ui_task();
+                }
+            }
             if (key_pressed_since != 0 &&
                 !key_press_stopped_alert &&
                 !runtime_mode_chord_consumed &&
