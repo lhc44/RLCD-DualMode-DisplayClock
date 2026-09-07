@@ -351,9 +351,14 @@ void button_task(void *)
         // ROM download remains the physical BOOT + power-on gesture.  During
         // normal runtime, holding BOOT and KEY together switches panel ownership
         // between the clock and the Windows USB display without entering settings.
+        // KEY opens Settings immediately on its down edge.  With two separate
+        // physical switches it is normal for KEY to win that race by a few
+        // milliseconds when the user intends BOOT+KEY.  Settings therefore
+        // must not disqualify the chord; a recognized chord clears that
+        // transient settings request below.
         const bool runtime_mode_chord =
-            boot_pressed && key_pressed && !settings_page_requested() &&
-            !info_page_requested() && !network_diag_page_requested() &&
+            boot_pressed && key_pressed && !info_page_requested() &&
+            !network_diag_page_requested() &&
             !setup_portal_active_load() && !battery_low_mode_load() &&
             !boot_press_stopped_alert && !key_press_stopped_alert;
         if (runtime_mode_chord) {
@@ -364,6 +369,11 @@ void button_task(void *)
                 const bool switched = dual_mode_toggle_from_runtime_chord();
                 if (switched) {
                     runtime_mode_chord_consumed = true;
+                    if (settings_page_requested()) {
+                        settings_page_clear();
+                        reset_settings_confirmation();
+                        reset_settings_navigation_state();
+                    }
                     key_press_opened_settings = true;
                     key_long_handled = true;
                     const DualModeSnapshot snapshot = dual_mode_snapshot_load();
