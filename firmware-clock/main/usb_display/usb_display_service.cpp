@@ -4,6 +4,7 @@
 #include "display_bsp.h"
 #include "usb_display_protocol.h"
 
+#include <atomic>
 #include <string.h>
 
 extern "C" {
@@ -27,6 +28,9 @@ constexpr char kTag[] = "usb_display";
 
 DisplayPort *s_display = nullptr;
 UsbDisplayMono1Receiver s_receiver;
+uint8_t s_last_frame[kUsbDisplayMono1Bytes] = {};
+std::atomic<bool> s_last_frame_valid{false};
+std::atomic<bool> s_present_cached_frame_requested{false};
 volatile bool s_host_attached = false;
 
 void consume_vendor_bytes(const uint8_t *data, size_t length)
@@ -68,18 +72,35 @@ void consume_vendor_bytes(const uint8_t *data, size_t length)
         data += take;
         length -= take;
         if (s_receiver.complete()) {
+            // The Windows sender elides duplicate desktop frames. Cache every
+            // complete frame, including those received while Clock mode owns
+            // the panel, so a later physical mode switch has an immediate
+            // image to present.
+            memcpy(s_last_frame, s_receiver.data(), s_receiver.size());
+            s_last_frame_valid.store(true, std::memory_order_release);
             if (dual_mode_snapshot_load().mode == DualMode::Display && s_display) {
-                (void)s_display->RLCD_PresentMono1(s_receiver.data(), s_receiver.size());
+                (void)s_display->RLCD_PresentMono1(s_last_frame, sizeof(s_last_frame));
             }
             s_receiver.reset();
         }
     }
 }
 
+void present_cached_frame_if_requested()
+{
+    if (!s_present_cached_frame_requested.exchange(false, std::memory_order_acq_rel) ||
+        !s_display || !s_last_frame_valid.load(std::memory_order_acquire) ||
+        dual_mode_snapshot_load().mode != DualMode::Display) {
+        return;
+    }
+    (void)s_display->RLCD_PresentMono1(s_last_frame, sizeof(s_last_frame));
+}
+
 void usb_task(void *)
 {
     for (;;) {
         tud_task();
+        present_cached_frame_if_requested();
         // tud_task() returns immediately when there is no bus work.  A tight
         // priority-5 loop here previously consumed an entire scheduler core
         // immediately after the boot animation.  Yield keeps USB responsive
@@ -122,6 +143,11 @@ bool usb_display_service_host_attached()
     return s_host_attached;
 }
 
+void usb_display_service_request_cached_frame()
+{
+    s_present_cached_frame_requested.store(true, std::memory_order_release);
+}
+
 extern "C" void tud_vendor_rx_cb(uint8_t interface_number)
 {
     uint8_t buffer[kReadBufferBytes];
@@ -135,6 +161,12 @@ extern "C" void tud_vendor_rx_cb(uint8_t interface_number)
 }
 
 extern "C" void tud_mount_cb(void) { s_host_attached = true; }
-extern "C" void tud_umount_cb(void) { s_host_attached = false; s_receiver.reset(); }
+extern "C" void tud_umount_cb(void)
+{
+    s_host_attached = false;
+    s_receiver.reset();
+    s_last_frame_valid.store(false, std::memory_order_release);
+    s_present_cached_frame_requested.store(false, std::memory_order_release);
+}
 extern "C" void tud_suspend_cb(bool) { }
 extern "C" void tud_resume_cb(void) { }

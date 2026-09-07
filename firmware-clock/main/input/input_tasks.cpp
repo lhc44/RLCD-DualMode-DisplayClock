@@ -21,6 +21,7 @@
 #include "ui_task_notify.h"
 #include "ui_work_page_catalog.h"
 #include "wifi_portal_state.h"
+#include "usb_display_service.h"
 
 #include "esp_sleep.h"
 #include "esp_log.h"
@@ -380,6 +381,9 @@ void button_task(void *)
                     ESP_LOGI(TAG,
                              BUTTON_DUAL_MODE_SWITCH_LOG_FORMAT,
                              static_cast<int>(snapshot.mode));
+                    if (snapshot.mode == DualMode::Display) {
+                        usb_display_service_request_cached_frame();
+                    }
                     notify_ui_task();
                 }
             }
