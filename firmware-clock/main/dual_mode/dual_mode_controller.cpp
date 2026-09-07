@@ -1,16 +1,11 @@
 #include "dual_mode_controller.h"
 
 #include "esp_attr.h"
-#include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/portmacro.h"
-#include "nvs.h"
 
 namespace {
 constexpr uint32_t kRetainedModeMagic = 0x444D4F44U; // "DMOD"
-constexpr char kNvsNamespace[] = "dual_mode";
-constexpr char kNvsModeKey[] = "mode";
-constexpr char kTag[] = "dual_mode";
 
 // Preserve the selected panel role across watchdog/software resets.  It is
 // intentionally RTC-backed rather than flash-backed: removing power returns
@@ -26,53 +21,18 @@ DualModeSnapshot s_snapshot = {
     .generation = 0,
 };
 
-bool load_persistent_display_mode(bool fallback)
-{
-    nvs_handle_t handle = 0;
-    if (nvs_open(kNvsNamespace, NVS_READONLY, &handle) != ESP_OK) {
-        return fallback;
-    }
-    uint8_t stored = 0;
-    const esp_err_t err = nvs_get_u8(handle, kNvsModeKey, &stored);
-    nvs_close(handle);
-    if (err != ESP_OK) {
-        return fallback;
-    }
-    return stored == static_cast<uint8_t>(DualMode::Display);
-}
-
-void persist_mode(DualMode mode)
-{
-    nvs_handle_t handle = 0;
-    esp_err_t err = nvs_open(kNvsNamespace, NVS_READWRITE, &handle);
-    if (err == ESP_OK) {
-        err = nvs_set_u8(handle, kNvsModeKey, static_cast<uint8_t>(mode));
-    }
-    if (err == ESP_OK) {
-        err = nvs_commit(handle);
-    }
-    if (handle != 0) {
-        nvs_close(handle);
-    }
-    if (err != ESP_OK) {
-        ESP_LOGE(kTag, "persist selected mode failed: %s", esp_err_to_name(err));
-    }
-}
 }
 
 void dual_mode_init()
 {
-    const bool retained_display =
-        s_retained_mode_magic == kRetainedModeMagic &&
-        s_retained_mode == static_cast<uint8_t>(DualMode::Display);
-    // The physical KEY's long-press path can reset the board on some RLCD
-    // revisions.  Keep the selected role in NVS as well as RTC memory, so
-    // an immediate board reset after the gesture still reaches the selected
-    // USB identity on the next boot.
-    const bool selected_display = load_persistent_display_mode(retained_display);
+    // Clock is always the recoverable power-on role.  USB itself keeps the
+    // IDD identity for the full session, therefore switching the panel never
+    // needs a reset or a USB PnP reconnect.
+    s_retained_mode_magic = 0;
+    s_retained_mode = static_cast<uint8_t>(DualMode::Clock);
     portENTER_CRITICAL(&s_mode_lock);
     s_snapshot = {
-        .mode = selected_display ? DualMode::Display : DualMode::Clock,
+        .mode = DualMode::Clock,
         .reason = DualModeReason::Boot,
         .generation = 1,
     };
@@ -100,9 +60,6 @@ bool dual_mode_request(DualMode target, DualModeReason reason)
     s_retained_mode_magic = kRetainedModeMagic;
     s_retained_mode = static_cast<uint8_t>(target);
     portEXIT_CRITICAL(&s_mode_lock);
-    // Commit before requesting USB re-enumeration. This is deliberately
-    // outside the critical section because NVS may touch flash.
-    persist_mode(target);
     return true;
 }
 

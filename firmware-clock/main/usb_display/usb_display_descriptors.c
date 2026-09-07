@@ -1,6 +1,5 @@
 #include <string.h>
 #include "tusb.h"
-#include "usb_display_device_identity.h"
 
 enum { kVendorInterface = 0, kInterfaceCount = 1 };
 enum { kVendorEndpoint = 1 };
@@ -24,12 +23,10 @@ static const tusb_desc_device_t kDeviceDescriptor = {
 
 uint8_t const *tud_descriptor_device_cb(void)
 {
-    // Windows IDD creation is a PnP action, not a vendor-packet command.  A
-    // mode change therefore reconnects with the IDD PID only in Display mode.
-    static tusb_desc_device_t descriptor;
-    descriptor = kDeviceDescriptor;
-    descriptor.idProduct = usb_display_service_enumerate_as_display() ? 0x2986 : 0x2987;
-    return (uint8_t const *)&descriptor;
+    // Keep one stable PnP identity for the whole USB session.  Switching
+    // ownership of the physical panel must not reset this board or ask
+    // Windows to tear down and recreate the indirect display adapter.
+    return (uint8_t const *)&kDeviceDescriptor;
 }
 
 #define USB_DISPLAY_CONFIG_TOTAL_LEN (TUD_CONFIG_DESC_LEN + TUD_VENDOR_DESC_LEN)
