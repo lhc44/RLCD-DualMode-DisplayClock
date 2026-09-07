@@ -415,12 +415,8 @@ extern "C" void app_main(void)
     init_power_management();
     create_regular_app_tasks();
 
-    // Enumerate the Windows display only after the local boot scene and the
-    // physical recovery chord are live. This prevents an old retained USB
-    // image from looking like the selected boot mode.
-    if (!usb_display_service_init(display)) {
-        ESP_LOGW(TAG, "USB secondary-display transport unavailable; continuing clock mode");
-    }
+    // The USB-secondary-display personality lives in OTA slot 1. Keeping it
+    // out of the clock runtime preserves Wi-Fi/weather and the original UI.
 
     if (setup_prompt_playback_pending()) {
         vTaskDelay(pdMS_TO_TICKS(kSetupPromptStartDelayMs));

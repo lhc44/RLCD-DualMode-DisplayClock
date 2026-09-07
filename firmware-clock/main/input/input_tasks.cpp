@@ -25,6 +25,8 @@
 
 #include "esp_sleep.h"
 #include "esp_log.h"
+#include "esp_ota_ops.h"
+#include "esp_system.h"
 #include "freertos/task.h"
 
 #define BUTTON_GPIO_CONFIG_FAILED_LOG_FORMAT "button gpio config failed: %s"
@@ -86,27 +88,20 @@ bool button_press_is_long(TickType_t held)
 
 bool toggle_runtime_display_mode()
 {
-    if (!dual_mode_toggle_from_runtime_chord()) {
+    // The clock and USB-display personalities are separate OTA application
+    // slots.  This preserves the original clock's Wi-Fi/UI timing and the
+    // known-good display firmware's USB timing instead of mixing both stacks
+    // in one runtime.
+    const esp_partition_t *running = esp_ota_get_running_partition();
+    const esp_partition_t *display_slot = esp_ota_get_next_update_partition(running);
+    if (!display_slot || esp_ota_set_boot_partition(display_slot) != ESP_OK) {
         return false;
     }
-    // A mode command always takes ownership away from the local settings
-    // page.  This makes the dedicated KEY gesture deterministic even if a
-    // previous short press left a menu open.
-    if (settings_page_requested()) {
-        settings_page_clear();
-        reset_settings_confirmation();
-        reset_settings_navigation_state();
-    }
-    const DualModeSnapshot snapshot = dual_mode_snapshot_load();
     ESP_LOGI(TAG,
-             BUTTON_DUAL_MODE_SWITCH_LOG_FORMAT,
-             static_cast<int>(snapshot.mode));
-    usb_display_service_set_display_active(snapshot.mode == DualMode::Display);
-    if (snapshot.mode == DualMode::Display) {
-        usb_display_service_request_cached_frame();
-    }
-    notify_ui_task();
-    return true;
+             "switching to dedicated USB-display slot at 0x%lx",
+             (unsigned long)display_slot->address);
+    vTaskDelay(pdMS_TO_TICKS(30));
+    esp_restart();
 }
 
 void return_to_system_settings_item(int selection, TickType_t now)

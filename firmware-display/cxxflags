@@ -1,0 +1,7 @@
+"-specs=E:/weixue/rlcd-usb-display-build/specs/picolibc.specs"
+-mlongcalls
+-fno-builtin-memcpy
+-fno-builtin-memset
+-fno-builtin-bzero
+-mdisable-hardware-atomics
+-fno-rtti

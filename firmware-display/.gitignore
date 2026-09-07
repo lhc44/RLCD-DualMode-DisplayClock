@@ -1,0 +1,5 @@
+build/
+sdkconfig
+sdkconfig.old
+.build-cache/
+.build-cache-tmp/
