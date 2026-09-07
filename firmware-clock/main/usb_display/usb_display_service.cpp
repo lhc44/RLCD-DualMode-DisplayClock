@@ -18,10 +18,13 @@ extern "C" {
 
 namespace {
 constexpr uint32_t kUsbTaskStack = 4096;
-// Keep USB transport below the clock/network service priorities and pin it to
-// core 0.  The original clock UI and both physical buttons live on core 1;
-// this keeps a busy host bulk endpoint from delaying that interaction path.
-constexpr UBaseType_t kUsbTaskPriority = 1;
+// The Windows desktop transport arrives as 64-byte full-speed bulk packets.
+// At the clock project's 250 Hz scheduler rate a low-priority USB task can
+// miss several milliseconds of packets before it next runs, which leaves the
+// device with no complete frame to show after the mode chord.  Match the
+// known-good stand-alone display priority, but pin it to core 0: the original
+// UI and both physical buttons remain on core 1.
+constexpr UBaseType_t kUsbTaskPriority = 5;
 constexpr BaseType_t kUsbTaskCore = 0;
 constexpr size_t kReadBufferBytes = 512;
 constexpr char kTag[] = "usb_display";
@@ -101,10 +104,9 @@ void usb_task(void *)
     for (;;) {
         tud_task();
         present_cached_frame_if_requested();
-        // tud_task() returns immediately when there is no bus work.  A tight
-        // priority-5 loop here previously consumed an entire scheduler core
-        // immediately after the boot animation.  Yield keeps USB responsive
-        // while allowing the normal clock services to start and run.
+        // This is deliberately the same high-priority, yielding USB service
+        // model as the proven stand-alone display firmware.  The core pinning
+        // above isolates it from the clock UI/button core.
         taskYIELD();
     }
 }
