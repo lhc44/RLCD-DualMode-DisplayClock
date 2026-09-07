@@ -14,7 +14,9 @@ extern "C" {
 #define CFG_TUD_ENDPOINT0_SIZE 64
 #define CFG_TUD_VENDOR 1
 #define CFG_TUD_VENDOR_EPSIZE 64
-#define CFG_TUD_VENDOR_RX_BUFSIZE 2048
+// The clock firmware schedules at 250 Hz.  This absorbs several USB bulk
+// service intervals while the USB task yields to CPU0 idle/network work.
+#define CFG_TUD_VENDOR_RX_BUFSIZE 8192
 #define CFG_TUD_VENDOR_TX_BUFSIZE 64
 #define CFG_TUD_HID 0
 

@@ -20,11 +20,11 @@ extern "C" {
 namespace {
 constexpr uint32_t kUsbTaskStack = 4096;
 // The Windows desktop transport arrives as 64-byte full-speed bulk packets.
-// At the clock project's 250 Hz scheduler rate a low-priority USB task can
-// miss several milliseconds of packets before it next runs, which leaves the
-// device with no complete frame to show after the mode chord.  Match the
-// known-good stand-alone display priority, but pin it to core 0: the original
-// UI and both physical buttons remain on core 1.
+// A full desktop frame is 15 KB of 64-byte full-speed bulk packets.  Use the
+// known-good priority and the enlarged RX queue, but always block for one
+// scheduler tick after servicing USB so CPU0's idle task, networking, and
+// watchdog keep making forward progress.  The original UI/buttons remain on
+// core 1.
 constexpr UBaseType_t kUsbTaskPriority = 5;
 constexpr BaseType_t kUsbTaskCore = 0;
 constexpr size_t kReadBufferBytes = 512;
@@ -126,10 +126,10 @@ void usb_task(void *)
         tud_task();
         reconnect_usb_if_requested();
         present_cached_frame_if_requested();
-        // This is deliberately the same high-priority, yielding USB service
-        // model as the proven stand-alone display firmware.  The core pinning
-        // above isolates it from the clock UI/button core.
-        taskYIELD();
+        // Yielding alone immediately schedules this priority-5 task again and
+        // starves CPU0 idle.  The 8 KB RX queue safely covers this scheduler
+        // interval while giving the normal clock runtime a real slot.
+        vTaskDelay(pdMS_TO_TICKS(1));
     }
 }
 
