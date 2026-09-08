@@ -17,6 +17,7 @@ This directory is the companion Windows x64 IDDCX driver for the Display firmwar
 - `setup-source/`: source for the elevated local test-signing installer.
 - `package/net8-x64/RLCD-Driver-Setup-Net8-x64.exe`: compact setup executable built from `setup-source/`.
 - `RLCD-Mono1-Driver-v1.2.25.7.zip`: downloadable package copy of the driver payload, installer and this guide.
+- [`../control/`](../control/): optional Windows control program for selecting the conversion mode and target frame rate after driver installation.
 
 No personal certificate, private signing key or pre-signed catalog is included. The setup program creates a **local test certificate** on the current PC, trusts it locally, uses the x64 WDK tools to generate/sign the catalog and invokes `pnputil` to install the driver. This is appropriate for local testing; use an authenticated production certificate for public release distribution.
 

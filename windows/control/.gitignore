@@ -1,0 +1,4 @@
+# Generated output
+source/bin/
+source/obj/
+*.pdb

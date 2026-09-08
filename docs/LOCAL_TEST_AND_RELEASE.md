@@ -83,6 +83,7 @@ idf.py build
 
 - [ ] 长按 KEY 后设备重启，使用 [`windows/driver/`](../windows/driver/) 的安装器后，Windows 枚举 `VID_303A:PID_2986` 对应的虚拟显示适配器。
 - [ ] Windows 显示设置中该显示器为 `400×300` 横向。
+- [ ] 使用 [`windows/control/`](../windows/control/) 的控制程序写入一个模式和目标帧率，确认其在下一帧刷新时生效。
 - [ ] 文本、黑白边缘与静态画面清晰；连续内容没有时钟页面覆盖。
 - [ ] Display 长按 KEY 后重新进入 Clock，Windows 副屏适配器消失。
 

@@ -62,8 +62,9 @@ ESP32-S3 只连接 **2.4 GHz Wi-Fi**。
 2. 用 USB 数据线连接设备；先退出 Clock 设置页。
 3. Clock 普通页面中长按 KEY 约 1.5 秒，设备重启进入 Display。
 4. Windows“显示设置”中应出现一个 `400 × 300` 横向虚拟显示器；选择“扩展这些显示器”，并将缩放设置为 `100%`。
-5. 将窗口拖到该显示器上。
-6. 需要回到 Clock 时，在 Display 长按 KEY 约 1.5 秒。
+5. 运行 [`windows/control/`](../windows/control/) 中的 `package/net8-x64/RLCD-Control-Net8-x64.exe`，选择 `Clear`、`Dark`、`Light`、`Photo`、`Invert` 或 `InvertPhoto`，并选择目标帧率后点击“应用到副屏”。该程序只配置 Windows 驱动，下一帧刷新时生效。
+6. 将窗口拖到该显示器上。
+7. 需要回到 Clock 时，在 Display 长按 KEY 约 1.5 秒。
 
 Display 走 Mono1 黑白数据，适合文字、状态页、静态工具和低频动画。为减少残影与闪烁，Windows 主机侧图像转换应优先使用适合 RLCD 的清晰黑白模式；高速视频和连续灰阶抖动不属于该屏幕的最佳使用方式。
 

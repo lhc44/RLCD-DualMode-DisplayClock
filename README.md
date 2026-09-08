@@ -24,6 +24,7 @@
 | [docs/PORTING_PLAN.md](docs/PORTING_PLAN.md) | 已完成项目状态、限制与后续方向 |
 | [release/SHA256SUMS.txt](release/SHA256SUMS.txt) | 当前发布镜像的校验值 |
 | [windows/driver/README.md](windows/driver/README.md) | Windows x64 IDDCX 驱动、安装器与源码 |
+| [windows/control/README.md](windows/control/README.md) | Windows 副屏模式与目标帧率控制程序 |
 
 ## 支持的硬件与软件
 
@@ -35,9 +36,9 @@
 | 面板输出 | `400×300` 横向，Mono1，`15,000 bytes/frame` |
 | Wi-Fi | 2.4 GHz（ESP32-S3 硬件能力） |
 | 构建工具链 | ESP-IDF `v6.0.2` |
-| Windows 副屏 | 仓库内 [`windows/driver/`](windows/driver/) 的 `VID_303A:PID_2986` x64 IDDCX 虚拟显示驱动 |
+| Windows 副屏 | [`windows/driver/`](windows/driver/) 的 `VID_303A:PID_2986` x64 IDDCX 驱动；[`windows/control/`](windows/control/) 可配置模式和目标帧率 |
 
-本仓库同时包含匹配的 Windows x64 IDDCX 驱动源码、驱动载荷和紧凑安装器，位于 [`windows/driver/`](windows/driver/)。副屏模式不是免驱 HID/USB 显示器：Windows 端仍须安装该驱动；安装器会在本机生成并信任测试签名，公开发行应改用正式签名证书。
+本仓库同时包含匹配的 Windows x64 IDDCX 驱动源码、驱动载荷和紧凑安装器，位于 [`windows/driver/`](windows/driver/)，以及模式/目标帧率控制程序 [`windows/control/`](windows/control/)。副屏模式不是免驱 HID/USB 显示器：Windows 端仍须安装该驱动；安装器会在本机生成并信任测试签名，公开发行应改用正式签名证书。控制程序只写入驱动配置，不刷写固件，也不切换设备模式。
 
 ## 最快开始：使用已验证的发布镜像
 
@@ -77,6 +78,7 @@ firmware-clock/       Clock（ota_0）源码与原始时钟能力
 firmware-display/     USB Display（ota_1）源码
 release/              已验证的完整刷写镜像与 SHA-256 清单
 windows/driver/       Windows x64 IDDCX 驱动源码、载荷与安装包
+windows/control/      Windows 副屏模式与目标帧率控制程序
 tools/                双模式完整刷写脚本
 docs/                 面向用户、维护者和发布者的项目文档
 upstream/clock-base/  导入时钟基线的本地记录（默认不提交）
