@@ -1,65 +1,65 @@
-# Publishing to GitHub
+# 发布到 GitHub
 
-## 1. Publishable repository boundary
+## 发布边界
 
-The public source repository contains source code, notices, documentation, and repeatable build instructions. Keep local binaries, build caches, private device configuration, and test-signing material outside it.
+本仓库有意跟踪当前已验证的 `release/` 六文件镜像，方便新用户完整刷写。构建缓存、私密设备配置和本机驱动签名材料不进入仓库。
 
-Required tracked files:
+| 应提交 | 不提交 |
+| --- | --- |
+| 源码、根 README、`docs/`、许可证和来源记录 | `firmware-*/build/`、`managed_components/`、`.build-cache/` |
+| 当前匹配的 `release/` 六个镜像与 `SHA256SUMS.txt` | Wi-Fi 密码、天气 API Key、Token、NVS dump、串口日志 |
+| 发布版本的校验值与变更说明 | 本机测试签名证书、私有 Windows 驱动输出、私人截图 |
 
-- `LICENSE`
-- `NOTICE.md`
-- `UPSTREAM.md`
-- `docs/ARCHITECTURE.md`
-- `docs/LOCAL_TEST_AND_RELEASE.md`
-- `firmware-clock/THIRD_PARTY_NOTICES.md`
+`.gitignore` 默认忽略新生成的 `release/` 文件。更新已跟踪的发布镜像后，复核 SHA-256；新增镜像时使用 `git add -f release/<file>`。
 
-Excluded material:
-
-- `firmware-clock/build/`, `firmware-clock/managed_components/`, `release/`
-- Wi-Fi passwords, weather API keys, private API hosts, tokens, NVS images
-- serial captures, screenshots that include private content, test certificates
-- generated Windows driver packages and local driver-signing files
-
-## 2. Local pre-push gate
+## 本地发布门禁
 
 ```powershell
-$repo = 'E:\weixue\RLCD-DualMode-DisplayClock'
-
+$repo = '<repo-root>'
 git -C $repo status
 git -C $repo diff --check
 git -C $repo fsck --full
-git -C $repo log --oneline -10
+Get-Content "$repo\release\SHA256SUMS.txt"
+Get-FileHash -Algorithm SHA256 "$repo\release\*" | Format-Table Path, Hash
 ```
 
-The working tree must be clean. Then complete the hardware checklist in [`LOCAL_TEST_AND_RELEASE.md`](LOCAL_TEST_AND_RELEASE.md), including both `CLOCK` and `DISPLAY` mode transitions.
+继续前满足以下条件：
 
-## 3. Create and push the repository
+- 工作区已提交；
+- `release/SHA256SUMS.txt` 与六个文件一致；
+- 已完成 [LOCAL_TEST_AND_RELEASE.md](LOCAL_TEST_AND_RELEASE.md) 的 Clock、Display 与切换验收；
+- README 中的按键和配网描述与实际固件一致。
 
-Create an **empty** GitHub repository named `RLCD-DualMode-DisplayClock`, then run:
+## 新建远程并推送
+
+GitHub 账户邮箱不等于 GitHub 用户名。请从 GitHub 个人主页或新建仓库页面复制实际仓库 HTTPS URL。
 
 ```powershell
-$repo = 'E:\weixue\RLCD-DualMode-DisplayClock'
-$remote = 'https://github.com/GITHUB_ACCOUNT/RLCD-DualMode-DisplayClock.git'
+$repo = '<repo-root>'
+$remote = 'https://github.com/<github-username>/RLCD-DualMode-DisplayClock.git'
 
 git -C $repo remote add origin $remote
 git -C $repo branch -M main
 git -C $repo push -u origin main
 ```
 
-Verify the public repository page contains the root README, source, notices, and `docs/LOCAL_TEST_AND_RELEASE.md`, but no local generated outputs.
-
-## 4. Release process
-
-1. Build with ESP-IDF **v5.5.3** and complete the physical checklist.
-2. Create a version tag only from the reviewed `main` commit.
-3. Attach firmware binaries only after the exact build inputs and SHA-256 values have been recorded.
-4. Include release notes covering: supported hardware, Windows driver version, panel resolution/format, the BOOT+KEY 1.5-second mode switch, known limitations, and rollback procedure.
-5. Keep the Windows test-signed driver installer as a separate test artifact; do not imply that it is a production-signed driver.
-
-Example tag and push:
+若 `origin` 已存在，改用：
 
 ```powershell
-$repo = 'E:\weixue\RLCD-DualMode-DisplayClock'
-git -C $repo tag -a v0.1.0 -m 'RLCD DualMode DisplayClock initial hardware-tested release'
-git -C $repo push origin v0.1.0
+git -C $repo remote set-url origin $remote
+git -C $repo push -u origin main
 ```
+
+GitHub 的密码输入框使用 Personal Access Token（PAT），而不是账户登录密码。Fine-grained token 选择该仓库，并授予 `Contents: Read and write`。
+
+## 创建 Release
+
+从经过硬件验收的 `main` 提交打标签：
+
+```powershell
+$repo = '<repo-root>'
+git -C $repo tag -a v0.1.0 -m 'Initial verified dual OTA release'
+git -C $repo push origin main --tags
+```
+
+Release Notes 至少列出：硬件型号、ESP-IDF 版本、六个镜像的 SHA-256、Clock/Display 的 KEY 长按切换方式、Windows 驱动依赖、2.4 GHz Wi-Fi 限制、已知 RLCD 画面边界，以及完整刷写回退步骤。

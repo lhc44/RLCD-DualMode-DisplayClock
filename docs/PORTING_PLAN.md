@@ -1,23 +1,29 @@
-# Port and verification plan
+# 项目状态、限制与后续方向
 
-## Completed integration work
+## 已完成
 
-1. Imported the complete clock baseline and preserved its upstream notices.
-2. Added the local TinyUSB vendor component and the stable 400×300 Mono1 descriptor identity.
-3. Ported the fixed-size USB Mono1 receiver and native `RLCD_PresentMono1()` presenter entry point.
-4. Added a locked dual-mode controller, LVGL flush exclusion, and redraw-on-return behavior.
-5. Added the post-startup BOOT+KEY 1.5-second chord with a consumed release path.
+- 将 Clock 与 USB Display 拆分为独立 `ota_0` / `ota_1` 应用。
+- 固定 `400×300` 横向 Mono1 副屏数据面，单帧 `15,000 bytes`。
+- Display 模式使用 TinyUSB Vendor 接口与 `VID_303A:PID_2986` 身份。
+- 在 Clock 和 Display 中实现 KEY 长按约 1.5 秒的双向切换与重启。
+- 完整刷写包包含双应用、bootloader、分区表、OTA 初始化数据和语音模型。
+- Clock 设置加入“更换 Wi-Fi”，只更新 Wi-Fi 凭据并保留其他配置。
+- Clock 音量加入持久化 `0%` 全局静音。
+- 根 README、使用指南、架构、发布和校验文档以当前双 OTA 实现为准。
 
-## Required target-hardware validation
+## 当前限制
 
-1. Build the project with the upstream-compatible ESP-IDF 5.5.3 environment.
-2. Flash and confirm default `CLOCK` boot, BOOT short-page switching, KEY settings navigation, and BOOT-held PWR download entry.
-3. Hold BOOT+KEY for 1.5 seconds: Windows should become the active panel presenter; repeat to restore an immediately redrawn clock.
-4. Send a known alternating Mono1 test frame and a full Windows desktop frame; verify the 400×300 landscape orientation and no concurrent clock writes.
-5. Disconnect/reconnect USB while in `DISPLAY`, then toggle to `CLOCK` and confirm the local UI remains usable.
+- 模式切换必然重启；同一启动中不会同时运行时钟与副屏。
+- Windows 副屏依赖外部虚拟显示驱动，不是标准 USB 视频设备。
+- 配网页是临时热点，不是常驻 LAN 管理控制台。
+- ESP32-S3 仅使用 2.4 GHz Wi-Fi。
+- Mono1 RLCD 适合静态与低频内容；高速视频、快速灰阶抖动和复杂摄影图像会受面板特性限制。
+- 当前 `0%` 是全局音量，并未拆分提醒、闹钟和小智的独立音量。
 
-## Deferred work
+## 候选后续工作
 
-- Eco-mode power transition and wake policy.
-- Windows control-plane messages beyond the existing full-frame Mono1 data stream.
-- Device-side frame-rate telemetry and host adaptive pacing.
+1. 增加常驻但受认证保护的局域网控制台，并复用现有 NVS 配置接口。
+2. 将音量拆为提醒、闹钟/番茄钟、小智三个独立控制项。
+3. 为 Windows 主机侧加入帧率、队列深度、掉帧和实际呈现延迟遥测。
+4. 提供与设备 API 共用的桌面配置工具、图片转换/上传和发布校验器。
+5. 为双镜像发布提供自动构建、签名、SHA-256 生成和 GitHub Release 工作流。

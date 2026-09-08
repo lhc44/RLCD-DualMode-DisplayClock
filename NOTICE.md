@@ -9,6 +9,6 @@ The upstream non-commercial license is retained verbatim in the repository root
 and in `firmware-clock/LICENSE`. Copyright notices and third-party notices in
 `firmware-clock/THIRD_PARTY_NOTICES.md` remain part of this distribution.
 
-The `reference/usb-display-stable/` directory records the local, previously
-verified USB display baseline used for this integration. It is source reference
-material only; the unified port is built from `firmware-clock/`.
+`firmware-display/` is the dedicated `ota_1` USB Display application used by
+this dual-OTA integration. `reference/` contains local protocol and presenter
+reference material only; it is not linked into either release application.
