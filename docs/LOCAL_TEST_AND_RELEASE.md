@@ -6,7 +6,7 @@
 
 | 项目 | 要求 |
 | --- | --- |
-| 操作系统 | Windows 10/11 x64 |
+| 操作系统 | Windows 10/11 x64；验证副屏驱动时另需 .NET 8 Windows Desktop Runtime 和 Windows SDK/WDK x64 工具 |
 | SDK | ESP-IDF `v6.0.2` |
 | 目标 | `esp32s3` |
 | 板卡 | Waveshare ESP32-S3-RLCD-4.2（16 MB Flash / 8 MB PSRAM） |
@@ -81,7 +81,7 @@ idf.py build
 
 ### Display
 
-- [ ] 长按 KEY 后设备重启，Windows 枚举 `VID_303A:PID_2986` 对应的虚拟显示适配器。
+- [ ] 长按 KEY 后设备重启，使用 [`windows/driver/`](../windows/driver/) 的安装器后，Windows 枚举 `VID_303A:PID_2986` 对应的虚拟显示适配器。
 - [ ] Windows 显示设置中该显示器为 `400×300` 横向。
 - [ ] 文本、黑白边缘与静态画面清晰；连续内容没有时钟页面覆盖。
 - [ ] Display 长按 KEY 后重新进入 Clock，Windows 副屏适配器消失。

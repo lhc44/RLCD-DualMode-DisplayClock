@@ -58,7 +58,7 @@ ESP32-S3 只连接 **2.4 GHz Wi-Fi**。
 
 ## Windows 副屏
 
-1. 在 Windows 安装与本固件相匹配的 RLCD Mono1 虚拟显示驱动。
+1. 从仓库 [`windows/driver/`](../windows/driver/) 以管理员身份运行 `package/net8-x64/RLCD-Driver-Setup-Net8-x64.exe`，安装匹配本固件的 RLCD Mono1 虚拟显示驱动。该紧凑安装器需要 .NET 8 Windows Desktop Runtime 与 Windows SDK/WDK 的 x64 签名工具。
 2. 用 USB 数据线连接设备；先退出 Clock 设置页。
 3. Clock 普通页面中长按 KEY 约 1.5 秒，设备重启进入 Display。
 4. Windows“显示设置”中应出现一个 `400 × 300` 横向虚拟显示器；选择“扩展这些显示器”，并将缩放设置为 `100%`。
@@ -71,7 +71,7 @@ Display 走 Mono1 黑白数据，适合文字、状态页、静态工具和低�
 
 1. 确认设备已经重启到 Display；Clock 下不会创建副屏适配器。
 2. 确认 USB 数据线具备数据功能。
-3. 确认 Windows 虚拟显示驱动已安装且和 `VID_303A:PID_2986` 匹配。
+3. 确认 [`windows/driver/`](../windows/driver/) 中的虚拟显示驱动已安装，且和 `VID_303A:PID_2986` 匹配。
 4. 在设备管理器重新插拔设备，随后重新打开“显示设置”。
 
 ## 下载模式与固件恢复

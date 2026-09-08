@@ -23,6 +23,7 @@
 | [docs/GITHUB_PUBLISH.md](docs/GITHUB_PUBLISH.md) | 推送 GitHub 与发布检查表 |
 | [docs/PORTING_PLAN.md](docs/PORTING_PLAN.md) | 已完成项目状态、限制与后续方向 |
 | [release/SHA256SUMS.txt](release/SHA256SUMS.txt) | 当前发布镜像的校验值 |
+| [windows/driver/README.md](windows/driver/README.md) | Windows x64 IDDCX 驱动、安装器与源码 |
 
 ## 支持的硬件与软件
 
@@ -34,9 +35,9 @@
 | 面板输出 | `400×300` 横向，Mono1，`15,000 bytes/frame` |
 | Wi-Fi | 2.4 GHz（ESP32-S3 硬件能力） |
 | 构建工具链 | ESP-IDF `v6.0.2` |
-| Windows 副屏 | 匹配 `VID_303A:PID_2986` 的外部 Windows 虚拟显示驱动 |
+| Windows 副屏 | 仓库内 [`windows/driver/`](windows/driver/) 的 `VID_303A:PID_2986` x64 IDDCX 虚拟显示驱动 |
 
-本仓库只发布设备端固件与源码；Windows 驱动/控制程序属于配套主机项目，安装包需与上表 USB 身份及 Mono1 协议匹配。副屏模式不是免驱 HID/USB 显示器，Windows 端需要安装对应虚拟显示驱动。
+本仓库同时包含匹配的 Windows x64 IDDCX 驱动源码、驱动载荷和紧凑安装器，位于 [`windows/driver/`](windows/driver/)。副屏模式不是免驱 HID/USB 显示器：Windows 端仍须安装该驱动；安装器会在本机生成并信任测试签名，公开发行应改用正式签名证书。
 
 ## 最快开始：使用已验证的发布镜像
 
@@ -75,6 +76,7 @@
 firmware-clock/       Clock（ota_0）源码与原始时钟能力
 firmware-display/     USB Display（ota_1）源码
 release/              已验证的完整刷写镜像与 SHA-256 清单
+windows/driver/       Windows x64 IDDCX 驱动源码、载荷与安装包
 tools/                双模式完整刷写脚本
 docs/                 面向用户、维护者和发布者的项目文档
 upstream/clock-base/  导入时钟基线的本地记录（默认不提交）

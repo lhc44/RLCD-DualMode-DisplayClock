@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Version>1.2.25.7</Version>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+  </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Package\xfz1986_usb_graphic.dll" LogicalName="Package.xfz1986_usb_graphic.dll" />
+    <EmbeddedResource Include="Package\xfz1986_usb_graphic.inf" LogicalName="Package.xfz1986_usb_graphic.inf" />
+  </ItemGroup>
+</Project>
