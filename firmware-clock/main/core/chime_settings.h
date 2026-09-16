@@ -6,7 +6,7 @@
 
 namespace chime_settings {
 
-// 0 is an intentional master mute level.  The codec accepts the full 0..100
+// 0 is an intentional master mute level. The codec accepts the full 0..100
 // range, and keeping it in the persisted level list makes mute survive reboot.
 inline constexpr int kVolumeLevels[] = {0, 5, 10, 20, 40, 60, 80, 100};
 inline constexpr size_t kVolumeLevelCount = sizeof(kVolumeLevels) / sizeof(kVolumeLevels[0]);

@@ -5,7 +5,6 @@
 #include "alarm_services.h"
 #include "app_metadata.h"
 #include "battery_runtime_state.h"
-#include "dual_mode_controller.h"
 #include "input_button_config.h"
 #include "input_button_wait_policy.h"
 #include "network_diagnostics_state.h"
@@ -21,7 +20,6 @@
 #include "ui_task_notify.h"
 #include "ui_work_page_catalog.h"
 #include "wifi_portal_state.h"
-#include "usb_display_service.h"
 
 #include "esp_sleep.h"
 #include "esp_log.h"
@@ -38,19 +36,18 @@
 #define BUTTON_EDGE_WAKEUP_READY_LOG_FORMAT "button edge wakeup ready"
 #define BUTTON_SWITCH_WORK_PAGE_LOG_FORMAT "switch work page: %d"
 #define BUTTON_SHOW_SETTINGS_LOG_FORMAT "key button clicked, showing settings page"
-#define BUTTON_DUAL_MODE_SWITCH_LOG_FORMAT "runtime display mode switched: %d"
 
 namespace {
 constexpr int kButtonDebounceMs = 18;
 constexpr int kButtonLongPressMs = 1200;
 constexpr int kButtonBusyFeedbackMs = 2000;
-constexpr int kRuntimeModeChordHoldMs = 1500;
+constexpr int kDisplayModeHoldMs = 1500;
 constexpr uint64_t kBootButtonPinMask = 1ULL << kBootButtonGpio;
 constexpr uint64_t kKeyButtonPinMask = 1ULL << kKeyButtonGpio;
 constexpr uint64_t kButtonInputPinMask = kBootButtonPinMask | kKeyButtonPinMask;
 constexpr TickType_t kButtonDebounceTicks = pdMS_TO_TICKS(kButtonDebounceMs);
 constexpr TickType_t kButtonLongPressTicks = pdMS_TO_TICKS(kButtonLongPressMs);
-constexpr TickType_t kRuntimeModeChordHoldTicks = pdMS_TO_TICKS(kRuntimeModeChordHoldMs);
+constexpr TickType_t kDisplayModeHoldTicks = pdMS_TO_TICKS(kDisplayModeHoldMs);
 constexpr const char *kSettingsBusyFeedbackText = "请等待操作完成";
 TaskNotificationTarget s_button_task_target;
 
@@ -60,10 +57,10 @@ static_assert(kBootButtonPinMask != 0, "BOOT button pin mask must not be empty")
 static_assert(kKeyButtonPinMask != 0, "KEY button pin mask must not be empty");
 static_assert(kButtonInputPinMask == (kBootButtonPinMask | kKeyButtonPinMask),
               "button input pin mask must include BOOT and KEY");
+static_assert(kDisplayModeHoldTicks >= kButtonLongPressTicks,
+              "display mode hold must not preempt settings long press");
 static_assert(kButtonLongPressTicks > kButtonDebounceTicks,
               "button long-press tick duration must be longer than debounce duration");
-static_assert(kRuntimeModeChordHoldTicks >= kButtonLongPressTicks,
-              "runtime mode chord must not preempt a normal short press");
 static_assert(kButtonGpioConfigMaxAttempts > 1,
               "button GPIO configuration must retain a retry opportunity");
 static_assert(kButtonGpioConfigRetryDelayMs > 0,
@@ -86,20 +83,17 @@ bool button_press_is_long(TickType_t held)
     return held >= kButtonLongPressTicks;
 }
 
-bool toggle_runtime_display_mode()
+bool switch_to_display_ota_slot()
 {
-    // The clock and USB-display personalities are separate OTA application
-    // slots.  This preserves the original clock's Wi-Fi/UI timing and the
-    // known-good display firmware's USB timing instead of mixing both stacks
-    // in one runtime.
     const esp_partition_t *running = esp_ota_get_running_partition();
     const esp_partition_t *display_slot = esp_ota_get_next_update_partition(running);
     if (!display_slot || esp_ota_set_boot_partition(display_slot) != ESP_OK) {
+        ESP_LOGW(TAG, "failed to select dedicated USB-display OTA slot");
         return false;
     }
     ESP_LOGI(TAG,
              "switching to dedicated USB-display slot at 0x%lx",
-             (unsigned long)display_slot->address);
+             static_cast<unsigned long>(display_slot->address));
     vTaskDelay(pdMS_TO_TICKS(30));
     esp_restart();
 }
@@ -250,8 +244,6 @@ void button_task(void *)
     bool key_long_handled = false;
     bool boot_press_stopped_alert = false;
     bool key_press_stopped_alert = false;
-    TickType_t runtime_mode_chord_since = 0;
-    bool runtime_mode_chord_consumed = false;
 
     for (;;) {
         TickType_t now = xTaskGetTickCount();
@@ -268,8 +260,7 @@ void button_task(void *)
                 }
             }
         } else {
-            if (boot_pressed_since != 0 &&
-                (boot_press_stopped_alert || runtime_mode_chord_consumed)) {
+            if (boot_pressed_since != 0 && boot_press_stopped_alert) {
                 // 提醒音播放期间任意按键只负责停止音频，不继续执行原按键动作。
             } else if (boot_pressed_since != 0 && settings_page_requested()) {
                 TickType_t held = now - boot_pressed_since;
@@ -306,13 +297,15 @@ void button_task(void *)
                 if (settings_page_requested()) {
                     settings_activity_record(now);
                 }
-                // Delay the short-press action until release.  GPIO18 is the
-                // board's dedicated application key, so its long press can
-                // safely select the USB display without using strapping GPIO0.
+                // Delay the normal KEY short-press action until release so a
+                // 1.5-second hold can select the dedicated USB Display app.
             } else if (!key_press_stopped_alert &&
                        !key_long_handled &&
-                       now - key_pressed_since >= kRuntimeModeChordHoldTicks) {
-                key_long_handled = toggle_runtime_display_mode();
+                       !settings_page_requested() && !info_page_requested() &&
+                       !network_diag_page_requested() && !setup_portal_active_load() &&
+                       !battery_low_mode_load() &&
+                       now - key_pressed_since >= kDisplayModeHoldTicks) {
+                key_long_handled = switch_to_display_ota_slot();
             } else if (!key_press_stopped_alert &&
                        !key_press_opened_settings &&
                        !key_long_handled &&
@@ -342,22 +335,17 @@ void button_task(void *)
             }
         } else {
             if (key_pressed_since != 0 &&
-                !key_press_stopped_alert &&
-                !runtime_mode_chord_consumed &&
-                !key_press_opened_settings && !key_long_handled &&
-                !settings_page_requested() &&
-                !info_page_requested() && !network_diag_page_requested()) {
-                TickType_t held = now - key_pressed_since;
-                if (button_press_is_short(held)) {
-                    ESP_LOGI(TAG, BUTTON_SHOW_SETTINGS_LOG_FORMAT);
-                    enter_settings_primary_menu(now);
-                    key_press_opened_settings = true;
-                    notify_ui_task();
-                }
+                !key_press_stopped_alert && !key_press_opened_settings &&
+                !key_long_handled && !settings_page_requested() &&
+                !info_page_requested() && !network_diag_page_requested() &&
+                button_press_is_short(now - key_pressed_since)) {
+                ESP_LOGI(TAG, BUTTON_SHOW_SETTINGS_LOG_FORMAT);
+                enter_settings_primary_menu(now);
+                key_press_opened_settings = true;
+                notify_ui_task();
             }
             if (key_pressed_since != 0 &&
                 !key_press_stopped_alert &&
-                !runtime_mode_chord_consumed &&
                 !key_press_opened_settings && !key_long_handled && settings_page_requested()) {
                 TickType_t held = now - key_pressed_since;
                 if (button_press_is_long(held)) {
@@ -381,41 +369,6 @@ void button_task(void *)
             key_press_opened_settings = false;
             key_long_handled = false;
             key_press_stopped_alert = false;
-        }
-
-        // ROM download remains the physical BOOT + power-on gesture.  During
-        // normal runtime, holding BOOT and KEY together switches panel ownership
-        // between the clock and the Windows USB display without entering settings.
-        // KEY opens Settings immediately on its down edge.  With two separate
-        // physical switches it is normal for KEY to win that race by a few
-        // milliseconds when the user intends BOOT+KEY.  Settings therefore
-        // must not disqualify the chord; a recognized chord clears that
-        // transient settings request below.
-        const bool runtime_mode_chord =
-            boot_pressed && key_pressed && !info_page_requested() &&
-            !network_diag_page_requested() &&
-            !setup_portal_active_load() && !battery_low_mode_load() &&
-            !boot_press_stopped_alert && !key_press_stopped_alert;
-        if (runtime_mode_chord) {
-            if (runtime_mode_chord_since == 0) {
-                runtime_mode_chord_since = now;
-            } else if (!runtime_mode_chord_consumed &&
-                       now - runtime_mode_chord_since >= kRuntimeModeChordHoldTicks) {
-                const bool switched = toggle_runtime_display_mode();
-                if (switched) {
-                    runtime_mode_chord_consumed = true;
-                    if (settings_page_requested()) {
-                        settings_page_clear();
-                        reset_settings_confirmation();
-                        reset_settings_navigation_state();
-                    }
-                    key_press_opened_settings = true;
-                    key_long_handled = true;
-                }
-            }
-        } else if (!boot_pressed && !key_pressed) {
-            runtime_mode_chord_since = 0;
-            runtime_mode_chord_consumed = false;
         }
         const bool press_tracking_active =
             boot_pressed_since != 0 || key_pressed_since != 0;

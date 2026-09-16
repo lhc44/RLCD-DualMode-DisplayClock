@@ -3,7 +3,6 @@
 #include <initializer_list>
 #include <limits>
 #include <freertos/FreeRTOS.h>
-#include <freertos/semphr.h>
 #include <esp_log.h>
 #include <esp_heap_caps.h>
 #include "display_bsp.h"
@@ -17,10 +16,7 @@
 #define RLCD_INIT_STAGE_FAILED_LOG_FORMAT "RLCD %s failed: %s"
 #define RLCD_RELEASE_STAGE_FAILED_LOG_FORMAT "RLCD release %s failed: %s"
 
-// The verified Windows-display implementation drives this panel at 10 MHz.
-// Keep the same transport rate here so a complete 15,000-byte Mono1 present
-// is not artificially capped by the imported clock baseline's 5 MHz setting.
-static constexpr int kRlcdSpiClockHz = 10 * 1000 * 1000;
+static constexpr int kRlcdSpiClockHz = 5 * 1000 * 1000;
 static constexpr int kRlcdTxChunkBytes = 2048;
 static constexpr int kRlcdOtaTxChunkBytes = 512;
 static constexpr int kRlcdTxRetryCount = 4;
@@ -170,11 +166,6 @@ width_(width),
 height_(height),
 spihost_(spihost)
 {
-    frame_mutex_ = xSemaphoreCreateRecursiveMutex();
-    if (!frame_mutex_) {
-        ESP_LOGE(kDisplayLogTag, "RLCD frame mutex allocation failed");
-        return;
-    }
     if (width_ <= 0 || height_ <= 0 ||
         width_ > std::numeric_limits<uint16_t>::max() ||
         height_ > std::numeric_limits<uint16_t>::max() ||
@@ -318,26 +309,10 @@ void DisplayPort::ReleaseResources() {
         LogDisplayReleaseFailure("SPI bus", spi_bus_free(spihost_));
         spi_bus_initialized_ = false;
     }
-    if (frame_mutex_) {
-        vSemaphoreDelete(frame_mutex_);
-        frame_mutex_ = NULL;
-    }
 }
 
 bool DisplayPort::IsReady() const {
     return ready_;
-}
-
-bool DisplayPort::RLCD_BeginFrame(TickType_t timeout)
-{
-    return frame_mutex_ && xSemaphoreTakeRecursive(frame_mutex_, timeout) == pdTRUE;
-}
-
-void DisplayPort::RLCD_EndFrame()
-{
-    if (frame_mutex_) {
-        (void)xSemaphoreGiveRecursive(frame_mutex_);
-    }
 }
 
 void DisplayPort::RLCD_Init() {
@@ -441,22 +416,6 @@ void DisplayPort::RLCD_Display() {
 	if (!RLCD_Sendbuffera(DispBuffer,DisplayLen)) {
         return;
     }
-}
-
-bool DisplayPort::RLCD_PresentMono1(const uint8_t *frame, size_t frame_len) {
-    const size_t expected = static_cast<size_t>(width_) * static_cast<size_t>(height_) /
-                            static_cast<size_t>(kRlcdPixelsPerByte);
-    if (!ready_ || !DispBuffer || !frame || frame_len != expected ||
-        DisplayLen != static_cast<int>(expected)) {
-        return false;
-    }
-    if (!RLCD_BeginFrame(pdMS_TO_TICKS(100))) {
-        return false;
-    }
-    memcpy(DispBuffer, frame, expected);
-    RLCD_Display();
-    RLCD_EndFrame();
-    return true;
 }
 
 void DisplayPort::RLCD_DisplayXRange(uint16_t x1, uint16_t x2) {

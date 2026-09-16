@@ -6,8 +6,6 @@
 #include "app_hardware.h"
 #include "app_metadata.h"
 #include "ota_runtime_state.h"
-#include "dual_mode_controller.h"
-#include "usb_display_service.h"
 #include "ui_display_diag_policy.h"
 
 #include <esp_attr.h>
@@ -127,43 +125,12 @@ void flush_callback(lv_disp_drv_t *drv, const lv_area_t *area, lv_color_t *color
     DisplayPort &display = app_display();
     DisplayFlushRuntimeState &runtime = display_flush_runtime();
 
-    // The USB presenter owns the panel while Windows Display mode is active.
-    // LVGL still completes its flush cycle so the clock scene remains current and
-    // can be redrawn immediately when the user returns to Clock mode.
-    if (usb_display_service_panel_owned()) {
-        runtime.range_count = 0;
-        runtime.force_full_refresh = false;
-        runtime.full_reason_mask = 0;
-        lv_disp_flush_ready(drv);
-        return;
-    }
-
-    // A UI flush mutates the same packed Mono1 buffer and SPI bus used by the
-    // USB presenter. Hold one recursive transaction lock for the full LVGL
-    // batch, from first pixel conversion through its final panel transfer.
-    if (!display.RLCD_BeginFrame(pdMS_TO_TICKS(100))) {
-        runtime.range_count = 0;
-        runtime.force_full_refresh = false;
-        runtime.full_reason_mask = 0;
-        lv_disp_flush_ready(drv);
-        return;
-    }
-    if (usb_display_service_panel_owned()) {
-        display.RLCD_EndFrame();
-        runtime.range_count = 0;
-        runtime.force_full_refresh = false;
-        runtime.full_reason_mask = 0;
-        lv_disp_flush_ready(drv);
-        return;
-    }
-
     const OtaRuntimeFlagsSnapshot ota_at_flush_start =
         ota_runtime_flags_load();
     if (ota_at_flush_start.reboot_pending) {
         runtime.range_count = 0;
         runtime.force_full_refresh = false;
         runtime.full_reason_mask = 0;
-        display.RLCD_EndFrame();
         lv_disp_flush_ready(drv);
         return;
     }
@@ -281,6 +248,5 @@ void flush_callback(lv_disp_drv_t *drv, const lv_area_t *area, lv_color_t *color
         runtime.force_full_refresh = false;
         runtime.full_reason_mask = 0;
     }
-    display.RLCD_EndFrame();
     lv_disp_flush_ready(drv);
 }

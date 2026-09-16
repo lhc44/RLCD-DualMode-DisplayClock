@@ -6,8 +6,6 @@
 #include <esp_lcd_panel_io.h>
 #include <esp_lcd_panel_vendor.h>
 #include <esp_lcd_panel_ops.h>
-#include <freertos/FreeRTOS.h>
-#include <freertos/semphr.h>
 
 
 #ifndef AlgorithmOptimization
@@ -40,7 +38,6 @@ class DisplayPort {
     bool                reset_gpio_configured_ = false;
     bool                ready_ = false;
     bool                initializing_ = false;
-    SemaphoreHandle_t   frame_mutex_ = NULL;
 #if (AlgorithmOptimization == 3)
     uint16_t *PixelIndexLUT = NULL;
     uint8_t *PixelBitLUT = NULL;
@@ -65,19 +62,10 @@ class DisplayPort {
     DisplayPort(const DisplayPort &) = delete;
     DisplayPort &operator=(const DisplayPort &) = delete;
     bool IsReady() const;
-    // Serializes ownership of both the packed frame buffer and the RLCD SPI
-    // bus. A caller that changes pixels must keep this lock through its final
-    // Display/DisplayXRange call; USB Mono1 presents acquire it internally.
-    bool RLCD_BeginFrame(TickType_t timeout = portMAX_DELAY);
-    void RLCD_EndFrame();
     void RLCD_Init();
     void RLCD_ColorClear(uint8_t color);
     void RLCD_Display();
     void RLCD_DisplayXRange(uint16_t x1, uint16_t x2);
-    // Presents a complete 400x300 packed Mono1 frame in the panel's native
-    // byte order. The method drains queued color DMA before returning, so the
-    // caller may safely recycle its input frame afterwards.
-    bool RLCD_PresentMono1(const uint8_t *frame, size_t frame_len);
 	#if (AlgorithmOptimization != 3)
     void RLCD_SetPortraitPixel(uint16_t x, uint16_t y, uint8_t color);      //竖屏显示
     void RLCD_SetLandscapePixel(uint16_t x, uint16_t y, uint8_t color);     //横屏显示

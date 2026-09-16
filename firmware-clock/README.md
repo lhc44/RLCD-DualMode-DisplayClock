@@ -1,147 +1,30 @@
-# ESP32-S3 RLCD 4.2 天气时钟
+# WeatherClock 固件独立工程 / Standalone Firmware
 
-> **语言：** 简体中文（当前） · [English](README_EN.md)
+本目录可单独下载并编译，无需 `host_web/`、仓库根目录脚本或其他示例工程。
+固件源码、板级组件、中文字体、内置图片/音频、分区表及依赖锁均保存在本目录。
 
-这是一个基于 **ESP32-S3** 和 **4.2 英寸 RLCD 屏幕** 的低功耗天气时钟固件项目。它把常驻显示、本地温湿度、联网天气、日历、图片展示、音频提醒、小智 AI 和 OTA 更新整合到一台桌面设备中。
+安装并激活 ESP-IDF **v5.5.3**，进入本目录执行：
 
-## 快速入口
+```sh
+idf.py build
+```
 
-- [中文用户使用说明](docs/User_zh.md)
-- [English User Guide](docs/User.md)
-- [贡献指南 / Contributing Guide](CONTRIBUTING.md)
-- [安全政策 / Security Policy](SECURITY.md)
-- [第三方开源许可说明](THIRD_PARTY_NOTICES.md)
-- [项目许可证](LICENSE)
-- [最低功耗 Power Demo](docs/Power%20Demo/README.md)
+首次构建需联网，由 ESP-IDF 组件管理器按 `dependencies.lock` 下载 LVGL、ESP-SR 等依赖到 `managed_components/`；语音模型由构建过程生成。构建产物在 `build/`，不需要从其他项目目录复制文件。
 
-## 关联项目
+完整串口烧录并查看日志：
 
-- [微雪 ESP32-S3-RLCD-4.2 官方产品页](https://www.waveshare.com/product/esp32-s3-rlcd-4.2.htm)：本项目所使用开发板的官方介绍、规格和购买信息。
-- [微雪 ESP32-S3-RLCD-4.2 官方文档](https://docs.waveshare.com/ESP32-S3-RLCD-4.2)：开发板接口、原理图、示例和硬件资料。
-- [ESP32-S3-RLCD-4.2_UP](https://github.com/wickenzh/ESP32-S3-RLCD-4.2_UP)：OTA 固件镜像仓库，可查看可用固件及版本信息。
-- [ESP32-S3-RLCD-4.2_Web](https://github.com/wickenzh/ESP32-S3-RLCD-4.2_Web)：设备网页端上位机仓库，用于配置设备和管理自定义资源。
+```sh
+idf.py -p YOUR_SERIAL_PORT flash monitor
+```
 
-## 项目定位
+`flash` 会写入分区表、应用、OTA 初始化数据和语音模型；需要保留设备原数据时先核对现有分区布局，不执行 `erase-flash`。
 
-这个项目面向长期摆放使用的桌面天气时钟。设计重点不是追求持续联网或高刷新率，而是在信息始终可读的前提下，让 Wi-Fi、音频、高频 UI 和其它高功耗资源只在真正需要时运行。
+公开源码默认使用占位 OTA 地址。自建固件需要在 `main/core/ota_endpoint_local.h` 配置自己的 `WEATHER_CLOCK_OTA_MANIFEST_URL` 和 `WEATHER_CLOCK_OTA_BACKUP_MANIFEST_URL`；该本地配置不能提交。缺少此文件不影响编译。正式发行固件的 OTA 地址由 GitHub Actions 注入。
 
-主要目标：
+## English
 
-- **常驻显示**：RLCD 在不持续刷新的情况下保持画面可读。
-- **按需功耗**：页面不可见时停止其专属刷新，普通联网任务完成后关闭 Wi-Fi。
-- **离线可用**：支持 RTC 保持时间，也可以不配置网络直接进入离线模式。
-- **稳定优先**：OTA、音频、显示和网络任务之间设有资源与状态保护。
-- **便于维护**：页面、天气、配置、音频、传感器、OTA 和小智 AI 按职责维护。
+This directory is a standalone ESP-IDF **v5.5.3** project. Activate that SDK, enter this directory and run `idf.py build`. No sibling directory or repository-root script is required.
 
-## 七个工作页面
+Firmware sources, board components, fonts, bundled media, partition configuration and the dependency lock are included here. The first build requires network access to download locked managed components; speech models are generated during the build. Output is written to `build/`.
 
-默认页面顺序如下，用户可以在设置中关闭页面或重新排序；系统始终保留至少一个可用工作页。
-
-1. **天气时钟**：时间、日期、实时天气、预警、本地温湿度、电池和状态图标。
-2. **图片时钟**：本地图片、大号分钟时间和每日文字；自定义图库支持多档切换周期。
-3. **天气看板**：城市天气、空气质量、湿度、风力、日出日落、预警和未来天气。
-4. **温湿时钟**：高对比时分秒、本地温湿度、趋势、日期和农历。
-5. **日历**：当月日历、农历、节日和今日高亮；极端六行月份会保持当前日期可见。
-6. **温湿历史**：记录并显示本地温湿度历史与趋势。
-7. **小智 AI**：本地唤醒、语音对话、字幕、回复播放、单次闹钟、番茄钟和天气城市设置。
-
-所有页面采用“能局部刷新就不全屏刷新”的原则。秒级页面只更新变化数字，分钟级页面只在时间、数据或显示状态变化时刷新；隐藏页面不会继续执行无意义的绘制。
-
-## 配置与联网
-
-首次使用通过设备配网页完成配置：
-
-- 支持主 Wi-Fi 和可选备用 Wi-Fi；主网络连续不可用时会尝试备用网络，成功后可按既有策略晋升。
-- 联网天气需要 QWeather API Key 和账号专属 API Host；API Host 在 QWeather 控制台中查看。
-- 天气城市可以使用公网 IP 自动定位，也可以通过配网页、上位机或小智 AI 设置手动城市。
-- 不配置 Wi-Fi 时，可以填写本地日期时间并进入离线模式。
-
-设备联网行为按需执行：
-
-- 天气时钟和天气看板在页面启用且数据缺失或到达同步时间时获取天气。
-- 图片时钟在需要时获取每日文字。
-- NTP 在启动、手动同步和既定校时点运行。
-- OTA、网络检测和手动同步只在用户主动操作时运行。
-- 小智 AI 只在对应页面激活语音与联网会话，离开页面后释放会话资源。
-- 离线模式、低电量、配网和 OTA 期间会拦截不合适的后台联网任务。
-
-天气与每日文字使用本地缓存。短时网络失败不会清空已有内容，后台重试受次数和退避限制，避免 Wi-Fi 反复上电。
-
-## 提醒与交互
-
-- 两个实体按键用于页面切换、菜单移动、确认、返回和停止提示音。
-- 支持整点提醒、全天提醒和多档音量设置。
-- 小智 AI 可以设置一个单次闹钟，也可以启动、修改、查询或取消番茄钟。
-- 闹钟和番茄钟使用独立状态，并对相同触发时刻进行冲突保护。
-- 设置中的“小智节能”可在长时间无操作时返回页面顺序中的首页；番茄钟运行期间不会被自动返回打断。
-
-## 低功耗策略
-
-固件在不改变屏幕常驻显示的前提下减少无效工作：
-
-- 启用 ESP-IDF 动态电源管理与 FreeRTOS Tickless Idle：CPU 在负载允许时从 `240MHz` 自动降至 `40MHz`，空闲窗口自动进入 Light Sleep；联网、音频和 OTA 只在工作期间通过 PM Lock 临时保持所需性能。
-- 秒级页面采用局部刷新；静态页面在没有事件时暂停周期绘制。
-- 温湿度、电池和历史采样按运行时段及充电状态调度。
-- 普通天气、每日文字、NTP 和 OTA 会错峰执行，避免启动阶段集中占用内存与 Wi-Fi。
-- 音频播放结束后释放 Codec 和相关资源。
-- Wi-Fi 图标与无线电实际状态保持一致，便于直接观察高功耗网络是否仍在运行。
-- OTA 下载期间降低 UI 刷新频率，并保留百分比、速度和进度条。
-- 低电量模式会进入极简显示并禁止高功耗操作。
-
-`docs/Power Demo/` 中的 [Power Demo](docs/Power%20Demo/README.md) 是独立实验工程，用于验证保留屏幕显示、分钟级唤醒和最小外设条件下的功耗边界。它不包含完整版设置、OTA、多页面和小智业务，也不参与正式固件构建。
-
-## 硬件与软件
-
-- 开发板：[Waveshare ESP32-S3-RLCD-4.2](https://www.waveshare.com/product/esp32-s3-rlcd-4.2.htm)。
-- 主控：ESP32-S3-WROOM-1-N16R8，16MB Flash、8MB PSRAM。
-- 显示：4.2 英寸 400 × 300 RLCD。
-- 本地设备：RTC、温湿度传感器、电池 ADC 和实体按键。
-- 音频：麦克风、Codec、功放和扬声器，用于小智 AI 与提示音。
-- 网络：Wi-Fi，用于配网、天气、每日文字、NTP、OTA 和网络检测。
-- 存储：NVS 保存联网与用户设置，独立资源分区保存可更新素材。
-- 开发框架：ESP-IDF `v5.5.3`；图形界面：LVGL `v8.4.0`。
-
-## 源码结构
-
-- `main/`：应用入口和按业务划分的固件模块。
-- `components/`：板级支持、显示、音频、资源和第三方组件。
-- `partitions.csv`：设备分区表。
-- `CMakeLists.txt`：ESP-IDF 工程入口。
-- `sdkconfig.defaults`：默认工程配置。
-- `docs/`：用户手册和独立 Power Demo。
-- `previews/`：由当前源码生成的全部详细 SDL 页面预览和总览图。
-- `.github/`：公开仓库的固件构建与源码发布工作流。
-
-构建与提交要求见 [贡献指南](CONTRIBUTING.md)。完整刷机、仅更新 App、配网、页面操作和常见问题见 [中文用户手册](docs/User_zh.md) 或 [English User Guide](docs/User.md)。
-
-## OTA 与自定义资源
-
-设备通过 OTA manifest 检查版本并下载 App 固件。公开源码仓库在版本标签触发后构建两类附件：
-
-- `weather_clock_vX.X.X.bin`：只包含 App，供 OTA 或保留现有分区/NVS 的 App 定址刷写使用。
-- `weather_clock_vX.X.X_merged.bin`：包含 bootloader、分区表、OTA data、语音模型和 App，供完整恢复或分区变化后的串口刷写使用。
-
-OTA 不能更新分区表。版本说明明确要求完整刷写时，请不要只执行 OTA。设备还支持通过上位机写入自定义图片资源；资源损坏或不存在时会使用固件内置内容兜底。
-
-## 开源来源与第三方许可
-
-本项目的小智 AI 页面基于 [`78/xiaozhi-esp32`](https://github.com/78/xiaozhi-esp32) 移植和二次开发，当前固定参考基线为提交 [`7b190b78e4f8dfef14126f6cd478c134b3cd3cd8`](https://github.com/78/xiaozhi-esp32/commit/7b190b78e4f8dfef14126f6cd478c134b3cd3cd8)。
-
-`xiaozhi-esp32` 由 Shenzhen Xinzhi Future Technology Co., Ltd. 及项目贡献者以 MIT License 发布。版权声明、MIT 许可文本和免责声明保留在 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) 中。本项目的非商业许可证只约束项目维护者拥有版权的原创部分，不覆盖第三方许可证已经授予的权利。
-
-## 贡献与安全
-
-提交 Issue 或 Pull Request 前请阅读：
-
-- [贡献指南 / Contributing Guide](CONTRIBUTING.md)
-- [安全政策 / Security Policy](SECURITY.md)
-
-请勿在 Issue、日志、截图或提交中公开 Wi-Fi 密码、QWeather API Key、API Host 私有配置、Token、NVS 镜像、设备私钥、本机绝对路径或私有服务地址。
-
-## 使用限制
-
-本项目仅允许个人学习、研究、评估和其它非商业用途。
-
-**严禁商用。**
-
-未经项目所有者书面许可，禁止将项目维护者拥有版权的原创部分用于商业产品、付费服务、批量销售、转售、营利性分发或其它商业交付。第三方组件仍遵循各自原始许可证。详细条款见 [`LICENSE`](LICENSE)。
+Public source uses placeholder OTA endpoints unless a local `main/core/ota_endpoint_local.h` defines the two OTA URL macros. This optional configuration is not needed for compilation and must not be committed. Official Release builds inject their endpoints in GitHub Actions.

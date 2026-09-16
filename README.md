@@ -6,7 +6,7 @@
 
 ## 亮点
 
-- **时钟模式**：天气、日历、图片、温湿度、历史数据、小智 AI、闹钟、番茄钟和整点提醒。
+- **时钟模式**：基于上游 `v1.6.5`，包含天气、日历、图片、温湿度、历史数据、小智 AI、闹钟、番茄钟、整点提醒及聚合时钟页。
 - **副屏模式**：Windows 虚拟显示驱动通过 USB Vendor 接口传送 `400×300` 横向 Mono1 全帧；面板实际帧大小为 `15,000 bytes`。
 - **稳定切换**：长按板载 **KEY（GPIO18）约 1.5 秒**，设备写入下次启动分区并重启到另一模式。
 - **配网保留设置**：`设置 → 网络 → 更换 Wi-Fi` 打开临时配网热点；只更新 Wi-Fi 凭据，页面、闹钟、相册、音量和天气配置保持原样。
@@ -89,8 +89,9 @@ upstream/clock-base/  导入时钟基线的本地记录（默认不提交）
 - 两个模式以重启切换，不提供同一启动中同时运行 Clock 与副屏的路径。
 - 配网页是临时热点门户，不是常驻局域网控制台。
 - `0%` 为全局静音，整点提醒、闹钟、番茄钟及小智扬声器都会静音；Wi-Fi 配网提示音走独立播放路径。
+- Clock 的“检查更新”会提示使用完整双模式刷写包：上游单镜像 OTA 被锁定，避免覆盖 `ota_1` 的 Display。
 - RLCD 适合静态信息与低频更新；高速运动视频和持续灰阶抖动不属于目标场景。
 
 ## 许可证与来源
 
-`firmware-clock/` 源自 [wickenzh/ESP32-S3-RLCD-4.2](https://github.com/wickenzh/ESP32-S3-RLCD-4.2)，导入提交为 [`9e9560a5f8133af429bf3631ee7e2e3cb7837f89`](docs/UPSTREAM.md)。保留的许可证、第三方声明和项目来源见 [LICENSE](LICENSE)、[NOTICE.md](NOTICE.md)、[UPSTREAM.md](UPSTREAM.md) 与 [firmware-clock/THIRD_PARTY_NOTICES.md](firmware-clock/THIRD_PARTY_NOTICES.md)。
+`firmware-clock/` 源自 [wickenzh/ESP32-S3-RLCD-4.2](https://github.com/wickenzh/ESP32-S3-RLCD-4.2)，当前导入提交为 [`6a5d19ba0880a4e0772a5c763e85c75c4954468b`](docs/UPSTREAM.md)（上游 `v1.6.5`）。保留的许可证、第三方声明和项目来源见 [LICENSE](LICENSE)、[NOTICE.md](NOTICE.md)、[UPSTREAM.md](UPSTREAM.md) 与 [firmware-clock/THIRD_PARTY_NOTICES.md](firmware-clock/THIRD_PARTY_NOTICES.md)。

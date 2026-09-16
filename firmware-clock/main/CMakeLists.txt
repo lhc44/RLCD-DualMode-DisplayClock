@@ -1,11 +1,9 @@
 # 固件主组件的源码清单和构建依赖配置。
 idf_component_register(
     SRCS
+        "ui/ui_aggregate_clock.cpp"
+        "ui/ui_aggregate_clock_view.cpp"
         "core/main.cpp"
-        "dual_mode/dual_mode_controller.cpp"
-        "usb_display/usb_display_protocol.cpp"
-        "usb_display/usb_display_service.cpp"
-        "usb_display/usb_display_descriptors.c"
         "core/app_task_startup.cpp"
         "core/app_metadata.cpp"
         "core/app_event_group.cpp"
@@ -209,6 +207,7 @@ idf_component_register(
         "assets/qweather_icons_36.c"
         "assets/zh_font_16.c"
         "assets/zh_flip_lunar_22.c"
+        "assets/aggregate_numeric_20.c"
         "assets/zh_pomodoro_title_24.c"
     INCLUDE_DIRS
         "."
@@ -224,12 +223,9 @@ idf_component_register(
         "input"
         "storage"
         "assets"
-        "dual_mode"
-        "usb_display"
     REQUIRES
         app_bsp
         port_bsp
-        leeebo__tinyusb_src
         lvgl__lvgl
         nvs_flash
         esp_wifi
@@ -245,11 +241,9 @@ idf_component_register(
         esp_pm
         esp_adc
         esp_driver_gpio
+        json
         mbedtls
         tcp_transport)
-
-idf_component_get_property(tusb_lib leeebo__tinyusb_src COMPONENT_LIB)
-target_link_libraries(${tusb_lib} PRIVATE ${COMPONENT_LIB})
 
 string(TIMESTAMP WEATHER_CLOCK_BUILD_DATE "%Y-%m-%d")
 target_compile_definitions(${COMPONENT_LIB} PRIVATE WEATHER_CLOCK_BUILD_DATE="${WEATHER_CLOCK_BUILD_DATE}")

@@ -2,7 +2,7 @@
 
 ## Clock baseline
 
-`firmware-clock/` is imported from [`wickenzh/ESP32-S3-RLCD-4.2`](https://github.com/wickenzh/ESP32-S3-RLCD-4.2) at commit `9e9560a5f8133af429bf3631ee7e2e3cb7837f89` (2026-08-31). It supplies the local clock, UI, RTC, sensors, power management, audio, networking and OTA baseline.
+`firmware-clock/` is imported from [`wickenzh/ESP32-S3-RLCD-4.2`](https://github.com/wickenzh/ESP32-S3-RLCD-4.2) at commit `6a5d19ba0880a4e0772a5c763e85c75c4954468b` (2026-09-13), upstream `v1.6.5`. It supplies the local clock, UI, RTC, sensors, power management, audio and networking baseline. The local dual-image integration disables its single-image in-device OTA path so it cannot overwrite `ota_1` (Display).
 
 ## USB display baseline
 

@@ -17,3 +17,6 @@ release/
 
 # Downloaded upstream checkout (metadata source only)
 upstream/
+
+# Local upstream merge staging and rollback copy
+.merge-v165/

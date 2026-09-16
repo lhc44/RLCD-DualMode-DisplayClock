@@ -1,6 +1,6 @@
 # 构建、刷写、验证与发布
 
-本文以当前项目的双 OTA 发布布局为准。日常使用预编译 `release/` 镜像；维护者才需要重建两个应用。
+本文以当前项目的双 OTA 发布布局为准。当前 Clock 发布基线为上游 `v1.6.5`（提交 `6a5d19ba0880a4e0772a5c763e85c75c4954468b`）。日常使用预编译 `release/` 镜像；维护者才需要重建两个应用。
 
 ## 发布前置条件
 
@@ -56,6 +56,8 @@ firmware-clock\build\partition_table\partition-table.bin
 ```
 
 将 Clock 产物作为发布镜像前，必须同时检查它仍小于 `ota_0` 的 `6912 KiB` 槽位，并完整验证 Clock 与 Display 的切换。
+
+> 双应用限制：不要在 Clock 设置中使用上游单镜像 OTA。该按钮在本项目会提示使用完整刷写包；`ota_1` 始终保留给 Display。
 
 ## 4. 构建 Display（维护者）
 

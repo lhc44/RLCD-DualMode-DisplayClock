@@ -15,8 +15,6 @@
 #include "audio_services_internal.h"
 #include "custom_assets_internal.h"
 #include "daily_saying_state_internal.h"
-#include "dual_mode_controller.h"
-#include "usb_display_service.h"
 #include "manual_weather_city_state_internal.h"
 #include "network_credentials_state_internal.h"
 #include "network_diagnostics_state_internal.h"
@@ -88,7 +86,7 @@
 #define MAIN_BOOT_SCREEN_FINISH_RETRY_LOG_FORMAT "boot screen finish retry: attempt=%u/%u"
 #define MAIN_BOOT_SCREEN_FINISH_FAILED_LOG_FORMAT "boot screen finish failed; startup stopped"
 #define MAIN_BOOT_TASK_COMPLETION_DELAYED_LOG_FORMAT \
-    "%s completion delayed; starting runtime services without waiting indefinitely"
+    "%s completion delayed; holding startup until resources are released"
 #define MAIN_STARTUP_RESOURCE_CLEANUP_LOG_FORMAT \
     "startup failed after resource activation; stopping Wi-Fi and parking audio"
 
@@ -284,12 +282,13 @@ static void wait_for_boot_task_completion(EventBits_t done_bit,
     ESP_LOGW(TAG,
              MAIN_BOOT_TASK_COMPLETION_DELAYED_LOG_FORMAT,
              task_name ? task_name : kFallbackBootTaskName);
-    // Network/DNS/TLS failures must never strand the panel on the startup
-    // scene.  In particular, the button/UI/USB services are the recovery path
-    // for an unreachable AP or a stalled portal request.  The boot tasks keep
-    // their own state and may complete later, but runtime service creation is
-    // deliberately bounded by the caller's expected timeout.
-    return;
+    // Both boot tasks own temporary stacks and the connectivity task may also
+    // own Wi-Fi/PM resources. Do not create permanent services against those
+    // resources after only the expected-duration window has elapsed.
+    app_event_group_wait_bits(done_bit,
+                              pdFALSE,
+                              pdTRUE,
+                              portMAX_DELAY);
 }
 
 static void cleanup_failed_startup_resources()
@@ -314,12 +313,6 @@ extern "C" void app_main(void)
     if (!init_nvs_storage()) {
         return;
     }
-    // The controller starts only after the ROM bootloader has finished its
-    // BOOT/PWR download decision. Runtime chord handling is added in a later
-    // port stage and never participates in reset-time GPIO sampling.
-    dual_mode_init();
-    ESP_LOGI(TAG, "dual mode initialized: %s",
-             dual_mode_snapshot_load().mode == DualMode::Display ? "DISPLAY" : "CLOCK");
 
     if (!ota_runtime_state_init()) {
         ESP_LOGE(TAG, MAIN_OTA_RUNTIME_STATE_INIT_FAILED_LOG_FORMAT);
@@ -367,9 +360,6 @@ extern "C" void app_main(void)
     }
     display.RLCD_ColorClear(ColorWhite);
     display.RLCD_Display();
-    if (!start_button_task_early()) {
-        ESP_LOGW(TAG, "button input service unavailable during startup");
-    }
     if (!Lvgl_PortInit(kDisplayWidth, kDisplayHeight, flush_callback)) {
         ESP_LOGE(TAG, MAIN_LVGL_INIT_FAILED_LOG_FORMAT);
         cleanup_failed_startup_resources();
@@ -409,14 +399,11 @@ extern "C" void app_main(void)
     }
     startup_screen_mark_finished();
 
-    // Bring the original clock services online before adding the optional
-    // Windows transport.  The panel, buttons and local settings are therefore
-    // usable even if host USB enumeration is delayed or fails.
+    // A transient early allocation or PM-driver failure must not permanently
+    // disable runtime sleep or network/audio protection. Successful resources
+    // are retained, so the normal path only checks the ready catalog.
     init_power_management();
     create_regular_app_tasks();
-
-    // The USB-secondary-display personality lives in OTA slot 1. Keeping it
-    // out of the clock runtime preserves Wi-Fi/weather and the original UI.
 
     if (setup_prompt_playback_pending()) {
         vTaskDelay(pdMS_TO_TICKS(kSetupPromptStartDelayMs));

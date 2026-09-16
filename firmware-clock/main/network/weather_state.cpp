@@ -155,7 +155,7 @@ bool get_weather_full_snapshot(WeatherData *weather,
                                WeatherForecastData *forecast,
                                WeatherAirData *air)
 {
-    ScopedSemaphoreLock lock(s_weather_state_mutex);
+    ScopedSemaphoreLock lock(s_weather_state_mutex,pdMS_TO_TICKS(50));
     if (!lock) {
         return false;
     }
@@ -190,7 +190,7 @@ bool weather_cache_status_snapshot_load(WeatherCacheStatusSnapshot *out)
     if (!out) {
         return false;
     }
-    ScopedSemaphoreLock lock(s_weather_state_mutex);
+    ScopedSemaphoreLock lock(s_weather_state_mutex,pdMS_TO_TICKS(50));
     if (!lock) {
         return false;
     }
@@ -199,6 +199,8 @@ bool weather_cache_status_snapshot_load(WeatherCacheStatusSnapshot *out)
         s_weather_alert_status.load(std::memory_order_acquire));
     out->extended_data_ready =
         weather_snapshot_store_extended_ready(s_weather_store);
+    out->forecast_data_ready = s_weather_store.forecast.ready &&
+        s_weather_store.forecast.count > 0 && s_weather_store.forecast.days[0].valid;
     return true;
 }
 

@@ -3,9 +3,9 @@
 | 项目 | 记录 |
 | --- | --- |
 | Clock 上游仓库 | https://github.com/wickenzh/ESP32-S3-RLCD-4.2 |
-| 导入提交 | `9e9560a5f8133af429bf3631ee7e2e3cb7837f89` |
-| 上游提交日期 | 2026-08-31 |
-| 本地导入日期 | 2026-09-04 |
+| 导入提交 | `6a5d19ba0880a4e0772a5c763e85c75c4954468b`（上游 `v1.6.5`） |
+| 上游提交日期 | 2026-09-13 |
+| 本地导入日期 | 2026-09-16 |
 | 本仓库角色 | 在保留上游许可证和第三方声明的前提下，维护 Clock 与独立 USB Display 的双 OTA 集成 |
 
-`firmware-clock/` 包含导入的 Clock 基线及本仓库修改。上游的完整用户资料仍位于 `firmware-clock/README.md`、`firmware-clock/docs/User_zh.md` 和 `firmware-clock/docs/User.md`；这些文件描述原始时钟能力。涉及双 OTA、KEY 模式切换、Windows 副屏、0% 音量和“更换 Wi-Fi”的行为，应以仓库根目录与 `docs/` 下文档为准。
+`firmware-clock/` 包含导入的 Clock 基线及本仓库修改。上游 v1.6.5 带来聚合时钟页与天气/传感器状态读取、LVGL 锁等待和任务看门狗恢复方面的修复。涉及双 OTA、KEY 模式切换、Windows 副屏、0% 音量和“更换 Wi-Fi”的行为，应以仓库根目录与 `docs/` 下文档为准；Clock 的上游单镜像 OTA 已禁用，必须使用本仓库的完整双模式发布包更新。

@@ -1,5 +1,5 @@
 
-set(COMPONENT_PRIV_INCLUDEDIRS "device/zl38063/api_lib" "device/priv_include")
+set(COMPONENT_PRIV_INCLUDEDIRS "device/zl38063/api_lib" "device/zl38063/firmware" "device/priv_include")
 
 set(COMPONENT_ADD_INCLUDEDIRS include interface device/include)
 

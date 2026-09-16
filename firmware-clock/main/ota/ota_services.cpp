@@ -87,6 +87,9 @@ static constexpr const char *kOtaStatusNoMemory = "No memory";
 static constexpr const char *kOtaStatusOfflineMode = "Offline mode";
 static constexpr const char *kOtaStatusSetupMode = "Setup mode";
 static constexpr const char *kOtaStatusUnavailable = "Update unavailable";
+// ota_1 is the independent USB Display image in this project.  Upstream Clock
+// OTA would select it as its next update slot and replace that application.
+static constexpr const char *kOtaStatusDualFirmware = "Use dual-mode full flash";
 static constexpr const char *kOtaStatusIdlePrompt = "BOOT: Check Update";
 static constexpr const char *kOtaStatusInstallingUpdate = "Installing update 0%";
 static constexpr const char *kOtaStatusInstallingBackup = "Installing backup 0%";
@@ -260,6 +263,13 @@ void ota_reset_status_if_idle()
 
 void ota_handle_info_key()
 {
+    // Deliberately keep upstream in-device OTA disabled for the dual-image
+    // layout.  A matching six-file release must update Clock and Display as a
+    // pair, otherwise the display personality would be overwritten.
+    keep_ota_settings_panel_visible();
+    ota_set_failed_status(kOtaStatusDualFirmware);
+    return;
+
     ota_reset_status_if_idle();
     if (offline_mode_enabled_load()) {
         keep_ota_settings_panel_visible();
@@ -549,13 +559,13 @@ static OtaInstallAttemptResult download_and_apply_ota(
 
     if (psa_crypto_init() != PSA_SUCCESS) {
         ESP_LOGW(TAG, "OTA SHA-256 crypto initialization failed");
-        ota_set_failed_status(kOtaStatusDownloadFailed);
+        ota_set_failed_status(kOtaStatusUpdateFailed);
         return OtaInstallAttemptResult::kTerminalFailure;
     }
     psa_hash_operation_t sha_ctx = PSA_HASH_OPERATION_INIT;
     if (psa_hash_setup(&sha_ctx, PSA_ALG_SHA_256) != PSA_SUCCESS) {
         ESP_LOGW(TAG, "OTA SHA-256 setup failed");
-        ota_set_failed_status(kOtaStatusDownloadFailed);
+        ota_set_failed_status(kOtaStatusUpdateFailed);
         return OtaInstallAttemptResult::kTerminalFailure;
     }
 
@@ -573,15 +583,21 @@ static OtaInstallAttemptResult download_and_apply_ota(
                          started_us,
                          total);
 
-    uint8_t hash[kOtaSha256ByteCount];
-    wdt.reset();
+    uint8_t hash[kOtaSha256ByteCount] = {};
     size_t hash_len = 0;
-    const psa_status_t hash_status = psa_hash_finish(&sha_ctx, hash, sizeof(hash), &hash_len);
+    wdt.reset();
+    psa_status_t sha_status =
+        psa_hash_finish(&sha_ctx, hash, sizeof(hash), &hash_len);
     bool complete = esp_http_client_is_complete_data_received(client);
     http_session.close();
 
-    if (!ota_install_attempt_succeeded(stream_result) || !complete ||
-        hash_status != PSA_SUCCESS || hash_len != sizeof(hash)) {
+    if (sha_status != PSA_SUCCESS || hash_len != sizeof(hash)) {
+        ESP_LOGW(TAG, "OTA SHA-256 finish failed");
+        ota_set_failed_status(kOtaStatusUpdateFailed);
+        return OtaInstallAttemptResult::kTerminalFailure;
+    }
+
+    if (!ota_install_attempt_succeeded(stream_result) || !complete) {
         ota_set_failed_status(kOtaStatusDownloadFailed);
         return ota_install_attempt_succeeded(stream_result)
                    ? OtaInstallAttemptResult::kRetryBackupSource
